@@ -1,3 +1,1 @@
-"""
-Tests module for JCAMP Backtesting Engine.
-"""
+"""JCAMP Trading System - Test Suite"""

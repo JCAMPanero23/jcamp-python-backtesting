@@ -1,0 +1,40 @@
+{
+  "data": {
+    "historical_data_path": "data/",
+    "cache_enabled": true,
+    "cache_path": "cache/"
+  },
+  
+  "backtest": {
+    "initial_balance": 10000,
+    "leverage": 50,
+    "commission_per_lot": 0,
+    "slippage_points": 1
+  },
+  
+  "strategies": {
+    "trend_rider": {
+      "enabled": true,
+      "min_confidence": 65.0,
+      "min_csm_differential": 15.0,
+      "adx_threshold": 25.0,
+      "rsi_buy_max": 65.0,
+      "rsi_sell_min": 35.0
+    },
+    
+    "range_rider": {
+      "enabled": true,
+      "min_confidence": 65,
+      "min_quality_score": 25,
+      "max_adx": 30.0,
+      "boundary_proximity_pips": 15.0
+    }
+  },
+  
+  "risk_management": {
+    "risk_percent": 2.0,
+    "max_positions": 2,
+    "daily_loss_limit_r": -6.0,
+    "use_advanced_trailing": true
+  }
+}

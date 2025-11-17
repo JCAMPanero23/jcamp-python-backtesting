@@ -1,0 +1,19 @@
+{
+  "server": {
+    "host": "localhost",
+    "port": 8000,
+    "workers": 4,
+    "reload": false
+  },
+  
+  "cors": {
+    "allow_origins": ["http://localhost:*"],
+    "allow_methods": ["GET", "POST"],
+    "allow_headers": ["*"]
+  },
+  
+  "logging": {
+    "level": "INFO",
+    "file": "logs/api_server.log"
+  }
+}

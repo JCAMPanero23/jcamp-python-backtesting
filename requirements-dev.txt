@@ -1,0 +1,189 @@
+# ═══════════════════════════════════════════════════════════════
+# JCAMP PYTHON BACKTESTING ENGINE - Development Dependencies
+# ═══════════════════════════════════════════════════════════════
+# Install: pip install -r requirements-dev.txt
+# This includes all core requirements plus development tools
+# ═══════════════════════════════════════════════════════════════
+
+# Include all core requirements
+-r requirements.txt
+
+# ───────────────────────────────────────────────────────────────
+# TESTING
+# ───────────────────────────────────────────────────────────────
+
+# Testing framework
+pytest>=7.4.0
+
+# Test coverage
+pytest-cov>=4.1.0
+
+# Async test support
+pytest-asyncio>=0.21.0
+
+# Mock objects
+pytest-mock>=3.11.0
+
+# Benchmark testing
+pytest-benchmark>=4.0.0
+
+# Parameterized testing
+pytest-parametrize>=1.1.0
+
+# ───────────────────────────────────────────────────────────────
+# CODE QUALITY & LINTING
+# ───────────────────────────────────────────────────────────────
+
+# Code formatter
+black>=23.7.0
+
+# Import sorting
+isort>=5.12.0
+
+# Linting
+flake8>=6.1.0
+pylint>=2.17.0
+
+# Type checking
+mypy>=1.5.0
+
+# Security checks
+bandit>=1.7.5
+
+# Complexity checking
+mccabe>=0.7.0
+radon>=6.0.0
+
+# ───────────────────────────────────────────────────────────────
+# DOCUMENTATION
+# ───────────────────────────────────────────────────────────────
+
+# Documentation generator
+sphinx>=7.1.0
+
+# Sphinx theme
+sphinx-rtd-theme>=1.3.0
+
+# Markdown support in Sphinx
+myst-parser>=2.0.0
+
+# API documentation
+sphinx-autodoc-typehints>=1.24.0
+
+# ───────────────────────────────────────────────────────────────
+# PRE-COMMIT HOOKS
+# ───────────────────────────────────────────────────────────────
+
+# Pre-commit framework
+pre-commit>=3.3.0
+
+# ───────────────────────────────────────────────────────────────
+# JUPYTER NOTEBOOK SUPPORT
+# ───────────────────────────────────────────────────────────────
+
+# Jupyter
+jupyter>=1.0.0
+notebook>=7.0.0
+
+# IPython
+ipython>=8.14.0
+
+# Notebook widgets
+ipywidgets>=8.1.0
+
+# ───────────────────────────────────────────────────────────────
+# PROFILING & PERFORMANCE
+# ───────────────────────────────────────────────────────────────
+
+# Line profiler
+line-profiler>=4.1.0
+
+# Memory profiler
+memory-profiler>=0.61.0
+
+# Performance monitoring
+py-spy>=0.3.14
+
+# ───────────────────────────────────────────────────────────────
+# DEBUGGING
+# ───────────────────────────────────────────────────────────────
+
+# Interactive debugger
+ipdb>=0.13.13
+
+# Better stack traces
+better-exceptions>=0.3.3
+
+# ───────────────────────────────────────────────────────────────
+# BUILD & PACKAGING
+# ───────────────────────────────────────────────────────────────
+
+# Build system
+build>=1.0.0
+
+# Package management
+setuptools>=68.0.0
+wheel>=0.41.0
+
+# Version management
+bump2version>=1.0.1
+
+# ───────────────────────────────────────────────────────────────
+# API DEVELOPMENT & TESTING
+# ───────────────────────────────────────────────────────────────
+
+# API testing
+httpx>=0.24.0
+
+# Request testing
+requests-mock>=1.11.0
+
+# ───────────────────────────────────────────────────────────────
+# DATA VALIDATION & SERIALIZATION
+# ───────────────────────────────────────────────────────────────
+
+# Schema validation
+jsonschema>=4.19.0
+
+# Data validation
+cerberus>=1.3.5
+
+# ───────────────────────────────────────────────────────────────
+# DEVELOPMENT UTILITIES
+# ───────────────────────────────────────────────────────────────
+
+# File watching for auto-reload
+watchdog>=3.0.0
+
+# Better REPL
+ptpython>=3.0.23
+
+# Syntax highlighting
+pygments>=2.16.0
+
+# ───────────────────────────────────────────────────────────────
+# NOTEBOOK EXTENSIONS
+# ───────────────────────────────────────────────────────────────
+
+# Notebook formatting
+jupytext>=1.15.0
+
+# Code quality in notebooks
+nbqa>=1.7.0
+
+# ───────────────────────────────────────────────────────────────
+# ADDITIONAL DEVELOPMENT TOOLS
+# ───────────────────────────────────────────────────────────────
+
+# Mock server for testing
+responses>=0.23.0
+
+# Time mocking for tests
+freezegun>=1.2.2
+
+# Fake data generation
+faker>=19.3.0
+
+# ═══════════════════════════════════════════════════════════════
+# END OF DEVELOPMENT REQUIREMENTS
+# ═══════════════════════════════════════════════════════════════

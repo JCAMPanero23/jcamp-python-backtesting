@@ -427,12 +427,20 @@ class BacktestEngine:
         perf_stats = self.performance_tracker.get_comprehensive_stats()
         pos_stats = self.position_manager.get_statistics()
         strategy_breakdown = self.position_manager.get_strategy_breakdown()
-        
+
+        # Convert closed positions to list of dicts for API
+        trades = [pos.to_dict() for pos in self.position_manager.closed_positions]
+
+        # Convert equity DataFrame to list of dicts for API
+        equity_df = self.performance_tracker.get_equity_dataframe()
+        equity_curve = equity_df.reset_index().to_dict('records') if not equity_df.empty else []
+
         return {
             'performance': perf_stats,
             'positions': pos_stats,
             'strategies': strategy_breakdown,
-            'equity_curve': self.performance_tracker.get_equity_dataframe()
+            'trades': trades,  # Individual trade data
+            'equity_curve': equity_curve  # List of dicts instead of DataFrame
         }
     
     def compare_to_mt5_baseline(self):

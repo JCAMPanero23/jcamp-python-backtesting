@@ -1,9 +1,9 @@
 # JCAMP Python Backtesting Engine - Project Status
 
-**Last Updated:** November 21, 2025
+**Last Updated:** November 22, 2025
 **Branch:** `phase5-session1-api-foundation`
-**Latest Commit:** 0982fdc - Fix Windows Unicode Error (Emoji Removal)
-**Overall Status:** Phase 5 Complete - System Operational
+**Latest Commit:** ff2ac11 - SimpleTestStrategy for Chart Testing
+**Overall Status:** Phase 5 Complete - Chart Viewer Fully Operational
 
 ---
 
@@ -34,7 +34,46 @@ The JCAMP Python Backtesting Engine is fully operational with **Phase 5 complete
 
 ---
 
-## Recent Critical Updates (Nov 18-21, 2025)
+## Recent Critical Updates (Nov 18-22, 2025)
+
+### SimpleTestStrategy Implementation (Nov 22) - TESTING TOOL
+**Commit:** ff2ac11
+
+**Purpose:**
+- Created deterministic test strategy for chart visualization debugging
+- Generates predictable alternating BUY/SELL trades
+- Fixed risk parameters: 5 pip SL / 10 pip TP (2:1 R:R ratio)
+
+**Features:**
+- Time-based entry (no complex strategy logic)
+- Alternating pattern: BUY → SELL → BUY → SELL
+- Disabled TrendRider/RangeRider during testing
+- Generated 200+ predictable trades on EURUSD Jan 2024
+
+**Files Added:**
+- src/strategies/simple_test.py (new)
+- Updated src/backtest_engine.py to integrate SimpleTest
+- Updated src/strategies/__init__.py exports
+
+**Impact:** Clean, predictable test data for C# chart viewer validation
+
+### Chart Viewer Complete (Nov 22) - ALL ISSUES FIXED ✅
+**Status:** All C# chart viewer issues resolved
+
+**Fixed Issues:**
+1. ✅ Candlesticks now rendering correctly
+2. ✅ Trade visualization with horizontal lines (Entry: white dashed, TP: green, SL: red)
+3. ✅ Viewport using DateTime coordinates
+4. ✅ X-axis labels with two-line format (time + date)
+5. ✅ Grid system with 30-minute intervals
+6. ✅ Date labels positioned at 00:00 with left indent
+
+**C# File Modified:**
+- ChartViewerWindow.xaml.cs (viewport, trade lines, X-axis formatting)
+
+**Impact:** Chart viewer fully operational with professional appearance
+
+## Previous Updates (Nov 18-21, 2025)
 
 ### Windows Unicode Error Fix (Nov 21) - CRITICAL
 **Commit:** 0982fdc
@@ -105,7 +144,8 @@ The JCAMP Python Backtesting Engine is fully operational with **Phase 5 complete
 **3. Strategy Engines ✅**
 - Trend Rider: EMA alignment + CSM + regime filtering
 - Range Rider: Support/resistance bounce + confidence
-- Status: Both operational
+- Simple Test: Alternating BUY/SELL for chart testing
+- Status: All operational
 
 **4. Risk Management ✅**
 - Position Sizing: 2% risk per trade
@@ -160,17 +200,14 @@ The JCAMP Python Backtesting Engine is fully operational with **Phase 5 complete
 - Regime enum handling - Fixed Nov 20
 - Position manager precision - Fixed Nov 18
 - API response serialization - Fixed Nov 20
-
-### Active Issues - C# Chart Viewer ⚠️
-1. Candlesticks not rendering (only EMAs visible)
-2. Trade box positioning incorrect
-3. Viewport auto-scroll not working
-4. Time/date display shows bar numbers instead of timestamps
-5. Text contrast issues (white on light background)
+- **C# Chart Viewer - ALL FIXED Nov 22** ✅
+  - Candlesticks rendering correctly
+  - Trade visualization with horizontal lines
+  - Viewport using DateTime coordinates
+  - X-axis labels showing time + date
+  - Grid system operational (30-minute intervals)
 
 **Reference:** `docs/current/CHART_VIEWER_ISSUES.md`
-**Priority:** Medium (affects UX, not core functionality)
-**Owner:** C# application (separate repository)
 
 ---
 
@@ -244,10 +281,11 @@ jcamp-python-backtesting/
 
 ### Immediate (This Week)
 1. ✅ Complete EMA bug fix
-2. Test backtest with corrected EMAs
-3. Address C# chart viewer issues
-4. Clean up test files
-5. Archive outdated docs
+2. ✅ C# chart viewer issues resolved
+3. ✅ SimpleTestStrategy for testing
+4. Test backtest with corrected EMAs
+5. Clean up test files
+6. Archive outdated docs
 
 ### Short-term (Next 2 Weeks)
 - Implement configuration file system

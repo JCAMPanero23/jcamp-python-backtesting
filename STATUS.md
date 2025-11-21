@@ -2,7 +2,7 @@
 
 **Last Updated:** November 21, 2025
 **Branch:** `phase5-session1-api-foundation`
-**Latest Commit:** 44c056b - Bug Fix: EMA Periods & Chart Visualization
+**Latest Commit:** 0982fdc - Fix Windows Unicode Error (Emoji Removal)
 **Overall Status:** Phase 5 Complete - System Operational
 
 ---
@@ -35,6 +35,30 @@ The JCAMP Python Backtesting Engine is fully operational with **Phase 5 complete
 ---
 
 ## Recent Critical Updates (Nov 18-21, 2025)
+
+### Windows Unicode Error Fix (Nov 21) - CRITICAL
+**Commit:** 0982fdc
+
+**Issue:**
+- Windows console (CP1252 encoding) cannot display Unicode emojis
+- Caused `[Errno 22] Invalid argument` errors during backtest execution
+- Prevented system from running on Windows environments
+
+**Changes:**
+- Replaced ALL emojis with ASCII equivalents in 7 Python files
+- Added 3 batch launcher scripts (START_ALL.bat, START_API_SERVER.bat, START_MONITOR_APP.bat)
+- Emoji mapping: ✓→[OK], ❌→[ERROR], ⚠️→[WARN], 📊→[CHART], etc.
+
+**Files Modified:**
+- src/backtest_engine.py
+- src/data_loader.py
+- src/csm_calculator.py
+- src/indicators.py
+- src/performance_tracker.py
+- src/regime_detector.py
+- src/api/services/backtest_service.py
+
+**Impact:** System now fully operational on Windows without encoding errors.
 
 ### EMA Period Bug Fix (Nov 21) - CRITICAL
 **Commit:** 44c056b
@@ -131,7 +155,8 @@ The JCAMP Python Backtesting Engine is fully operational with **Phase 5 complete
 ## Known Issues
 
 ### Fixed Issues ✅
-- EMA period mismatch (35/50 → 50/100) - Fixed Nov 21
+- Windows Unicode/emoji encoding errors - Fixed Nov 21 (0982fdc)
+- EMA period mismatch (35/50 → 50/100) - Fixed Nov 21 (44c056b)
 - Regime enum handling - Fixed Nov 20
 - Position manager precision - Fixed Nov 18
 - API response serialization - Fixed Nov 20
@@ -310,10 +335,11 @@ jcamp-python-backtesting/
 ## Related Repositories
 
 ### CSMMonitor (C# WPF Application)
-- **Location:** `C:\Users\jcamp\OneDrive\Documents\Visual Studio 2022\Projects\CSMMonitor`
+- **Location:** `D:\JcampFxTrading\CSMMonitor`
+- **Previous Location:** `C:\Users\jcamp\OneDrive\Documents\Visual Studio 2022\Projects\CSMMonitor` (deprecated)
 - **GitHub:** https://github.com/JCAMPanero23/CSMMonitor
-- **Symbolic Link:** `CSMMonitor/` (full read/write access)
 - **Status:** Integrated, Python API ready for C# integration
+- **Migration Date:** November 21, 2025 (moved from OneDrive to avoid sync conflicts)
 
 ---
 

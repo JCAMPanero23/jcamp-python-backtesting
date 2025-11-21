@@ -118,14 +118,14 @@ This Python-based backtesting engine replicates and extends the functionality of
 
 The `CSMMonitor` folder is a **symbolic link** to the C# WPF monitoring application repository. This allows seamless cross-project development between the Python backtesting engine and the C# monitoring interface.
 
-### **Symbolic Link Details**
+### **C# Project Location**
 
-**Link Location:**
+**Project Directory:**
 ```
-D:\JcampFxTrading\jcamp-python-backtesting\CSMMonitor\
+D:\JcampFxTrading\CSMMonitor
 ```
 
-**Target Directory:**
+**Previous Location (OneDrive - deprecated):**
 ```
 C:\Users\jcamp\OneDrive\Documents\Visual Studio 2022\Projects\CSMMonitor
 ```
@@ -138,22 +138,14 @@ https://github.com/JCAMPanero23/CSMMonitor
 ### **Access Control**
 
 **Read/Write Permissions:**
-- Full read/write access to all files within the symbolic link
-- Modifications made through the symbolic link are reflected in the original C# project
-- Changes can be committed directly to the CSMMonitor repository
+- Full read/write access to all files in the CSMMonitor directory
+- Both Python and C# projects now reside in `D:\JcampFxTrading`
+- Git operations (commit, push, pull) should be performed within the CSMMonitor directory
 
 **Important Notes:**
-- Any edits made in `D:\JcampFxTrading\jcamp-python-backtesting\CSMMonitor\` will modify files in the actual C# project location
-- Git operations (commit, push, pull) should be performed within the CSMMonitor directory
-- The symbolic link allows both Visual Studio and Claude Code to access the same files
-
-### **Creating the Symbolic Link**
-
-If you need to recreate the symbolic link, run this command as Administrator:
-
-```bash
-mklink /D "D:\JcampFxTrading\jcamp-python-backtesting\CSMMonitor" "C:\Users\jcamp\OneDrive\Documents\Visual Studio 2022\Projects\CSMMonitor"
-```
+- The C# project was migrated from OneDrive to avoid file sync conflicts
+- Both projects now share the same parent directory for easier management
+- Visual Studio and Claude Code can both access files without OneDrive interference
 
 ### **Git Workflow for CSMMonitor**
 
@@ -613,34 +605,56 @@ DisplayResults(results);
 ```
 jcamp-python-backtesting/
 ├── src/
-│   ├── core/              # Data processing & indicators
-│   ├── strategies/        # Trading strategies
-│   ├── risk/              # Risk management
-│   ├── engine/            # Backtesting engine
-│   ├── optimization/      # Parameter optimization
-│   └── api/               # REST API server
-├── tests/
-│   ├── unit/              # Unit tests
-│   ├── integration/       # Integration tests
-│   └── validation/        # MT5 validation tests
-├── config/                # Configuration files
-├── data/                  # Historical data (gitignored)
-├── results/               # Backtest results (gitignored)
-├── docs/                  # Documentation
-├── scripts/               # Utility scripts
-└── examples/              # Usage examples
+│   ├── backtest_engine.py      # Main backtesting engine
+│   ├── data_loader.py          # Data loading & timeframe conversion
+│   ├── csm_calculator.py       # Currency Strength Meter
+│   ├── indicators.py           # EMA, ADX, RSI, ATR
+│   ├── regime_detector.py      # Trending/Ranging detection
+│   ├── position_manager.py     # Position tracking
+│   ├── performance_tracker.py  # Analytics & metrics
+│   ├── strategies/             # Trading strategies
+│   │   ├── trend_rider.py
+│   │   └── range_rider.py
+│   ├── visualization/          # Chart generation
+│   │   └── chart_generator.py
+│   └── api/                    # REST API server
+│       ├── main.py
+│       ├── models/
+│       ├── routes/
+│       └── services/
+├── tests/                      # Test suite
+│   ├── test_phase1.py          # Data loader & CSM tests
+│   ├── test_phase2.py          # Indicators & regime tests
+│   ├── test_phase3.py          # Strategy tests
+│   ├── test_phase4.py          # Backtest engine tests
+│   ├── samples/                # Sample data files
+│   └── outputs/                # Test outputs (gitignored)
+├── docs/
+│   ├── current/                # Current documentation
+│   └── archive/                # Historical/archived docs
+├── charts/                     # Generated charts (gitignored)
+├── data/                       # Historical data (gitignored)
+├── scripts/
+│   └── start_api_server.py     # API server launcher
+├── START_ALL.bat               # Launch API + C# app
+├── START_API_SERVER.bat        # Launch API only
+├── START_MONITOR_APP.bat       # Launch C# app only
+├── STATUS.md                   # Project status tracking
+└── CSMMonitor/                 # Symbolic link to C# app
 ```
 
 ---
 
 ## 🗺️ **Roadmap**
 
-### **Version 1.0 (Current)**
+### **Version 1.0 (Current - Nov 21, 2025)**
 - ✅ Core backtesting engine
 - ✅ Trend Rider & Range Rider strategies
 - ✅ Basic parameter optimization
-- ✅ REST API server
+- ✅ REST API server with chart visualization
 - ✅ CSV data loading
+- ✅ Windows compatibility (Unicode fix)
+- ✅ Batch launcher scripts (.bat files)
 
 ### **Version 1.1 (Next)**
 - ⏳ Walk-forward analysis
@@ -692,11 +706,17 @@ python scripts/run_server.py --port 8001
 
 ## 📚 **Documentation**
 
-- [Installation Guide](docs/Installation.md)
-- [User Guide](docs/User_Guide.md)
-- [API Reference](docs/API_Documentation.md)
-- [Developer Guide](docs/Developer_Guide.md)
-- [Validation Report](docs/Validation_Report.md)
+### **Current Documentation**
+- [Project Status](STATUS.md) - Comprehensive project status and metrics
+- [Chart Viewer Issues](docs/current/CHART_VIEWER_ISSUES.md) - C# integration issues
+- [Chart Viewer Implementation](docs/current/CHART_VIEWER_IMPLEMENTATION_GUIDE.md) - Integration guide
+- [API Documentation](http://localhost:8000/docs) - Auto-generated Swagger docs (when server running)
+
+### **Planned Documentation** ⏳
+- Installation Guide (docs/Installation.md)
+- User Guide (docs/User_Guide.md)
+- Developer Guide (docs/Developer_Guide.md)
+- Validation Report (docs/Validation_Report.md)
 
 ---
 

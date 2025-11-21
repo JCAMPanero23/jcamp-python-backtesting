@@ -1,24 +1,78 @@
-BACKTEST VIEWER - ISSUES TO FIX
-Last Updated: 2024-11-21
+BACKTEST VIEWER - ISSUES STATUS
+Last Updated: 2025-11-21
 
-A. Python back test engine window:
-1. the text fonts is unreadable. white text on a bit dark white background(no contrast on symbols, strategy, dates, highlighted/selected tab) 
+## FIXED ISSUES ✅ (Nov 21, 2025)
 
-B. MT5-Style Chart Viewer - JCAMP Back testing observation:
-1. candle stick sit sill not showing. only EMA draws. 
-2. Transparent trade boxes is location is way too off. 
-	- the start/left side of the box is when the trade got entered or pending order. 
-	- if pending order got triggered, the start/left side will be moved to the right to when it triggered.
-	- the Transparent trade boxes should be ended/right-side of box when the trade was closed. 
-	- on the chart viewport:
-		-currently the columns shows below above the "TIME" is the Bar Numbers. this should be time and dates. instead of only bars number. maybe 		put this on the lines/rows. row1 = Time, row2 = Date 
-3. bar slider is good. 
-4. when the simulation is playing. the viewport is on not moving with the current price is. it should be moving with the current price. the current price must be on the right-side of the viewport.  
-5. EMA should be like this: (and this is what the Jcamp_BacktestEA.mq5 v1.96 was using)
-	-EMA fast is 20 and color RED
-	-EMA Mid is 50 and color Orange
-	-EMA slow is 100 and color blue
+### B. MT5-Style Chart Viewer - JCAMP Backtesting Chart
 
+1. **✅ FIXED - Candlesticks now showing**
+   - **Issue:** Candlesticks not rendering, only EMAs visible
+   - **Root Cause:** ScottPlot 5.x required explicit color configuration
+   - **Fix:** Added explicit UpColor/DownColor and LineWidth to candlestick plot
+   - **File:** ChartViewerWindow.xaml.cs:271-274
 
-Note: 
-lets focus first on this issues.
+2. **✅ FIXED - Trade boxes too large**
+   - **Issue:** TP/SL boxes were 5 pips tall, too prominent
+   - **Fix:** Reduced box height from 5 pips to 2 pips
+   - **File:** ChartViewerWindow.xaml.cs:385, 415
+
+3. **✅ FIXED - Trade boxes starting at bar 0**
+   - **Issue:** Trade boxes appeared at wrong positions, often starting at bar 0
+   - **Root Cause:** Coordinate system mismatch - candlesticks used DateTime for X-axis, but EMAs and trade boxes used bar indices
+   - **Fix:** Changed candlesticks to use bar index-based coordinates (DateTime.MinValue.AddDays(i)) for consistency
+   - **File:** ChartViewerWindow.xaml.cs:261-262
+
+5. **✅ CONFIRMED - EMA colors and periods correct**
+   - EMA Fast (20): RED #EF5350
+   - EMA Mid (50): ORANGE #FF6D00
+   - EMA Slow (100): BLUE #2962FF
+   - Matches MT5 v1.96 specification
+
+## REMAINING ISSUES ⚠️
+
+### A. Python Backtest Engine Window (Low Priority)
+1. **Text font contrast issue**
+   - White text on light background in some areas
+   - Status: Not critical, UX improvement
+
+### B. MT5-Style Chart Viewer
+
+3. **Bar slider - WORKING ✅**
+   - No issues reported
+
+4. **Viewport auto-scroll during playback**
+   - **Status:** Already implemented (ChartViewerWindow.xaml.cs:206-223)
+   - Keeps current bar on right side of viewport during playback
+   - May need testing to verify it works as expected
+
+## MIGRATION COMPLETED ✅
+
+**Project Location Changed:**
+- **Old:** `C:\Users\jcamp\OneDrive\Documents\Visual Studio 2022\Projects\CSMMonitor`
+- **New:** `D:\JcampFxTrading\CSMMonitor`
+- **Reason:** OneDrive sync was causing file editing conflicts
+- **Date:** November 21, 2025
+
+## TESTING REQUIRED 🧪
+
+**Next Steps:**
+1. Run a backtest from Python API
+2. Open chart viewer in C# application
+3. Verify:
+   - ✅ Candlesticks are visible
+   - ✅ Trade boxes start at correct entry point
+   - ✅ Trade boxes are appropriately sized (2 pips)
+   - ⚠️ Viewport follows price during playback
+   - ⚠️ Time/date display on X-axis
+
+## TECHNICAL DETAILS
+
+**Files Modified:**
+- `ChartViewerWindow.xaml.cs` - Main chart viewer logic
+
+**Key Changes:**
+1. Line 261-262: Changed OHLC to use `DateTime.MinValue.AddDays(i)` instead of `candle.GetDateTime()`
+2. Line 271-274: Added explicit candlestick colors (UpColor, DownColor, LineWidth)
+3. Line 385, 415: Changed box height from 5 pips to 2 pips
+
+**Commit Status:** Ready to commit

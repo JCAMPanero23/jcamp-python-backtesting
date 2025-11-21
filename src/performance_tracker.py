@@ -266,30 +266,30 @@ class PerformanceTracker:
         print("  BACKTEST PERFORMANCE SUMMARY")
         print("="*70)
         
-        print("\n📊 OVERALL RESULTS:")
+        print("\n[CHART] OVERALL RESULTS:")
         print(f"  Initial Balance:  ${stats['initial_balance']:,.2f}")
         print(f"  Final Balance:    ${stats['final_balance']:,.2f}")
         print(f"  Net Profit:       ${stats['net_profit']:,.2f} ({stats['return_pct']:+.2f}%)")
         
-        print("\n📈 TRADE STATISTICS:")
+        print("\n[TREND] TRADE STATISTICS:")
         print(f"  Total Trades:     {stats['total_trades']}")
         print(f"  Winning Trades:   {stats['winning_trades']}")
         print(f"  Losing Trades:    {stats['losing_trades']}")
         print(f"  Win Rate:         {stats['win_rate']:.1f}%")
         
-        print("\n💰 R-MULTIPLE ANALYSIS:")
+        print("\n[MONEY] R-MULTIPLE ANALYSIS:")
         print(f"  Total R-Multiple: {stats['total_r']:+.2f}R")
         print(f"  Average R:        {stats['avg_r']:+.3f}R")
         print(f"  Best Trade:       {stats['max_r']:+.2f}R")
         print(f"  Worst Trade:      {stats['min_r']:+.2f}R")
         
-        print("\n⚠️  RISK METRICS:")
+        print("\n[WARN]️  RISK METRICS:")
         print(f"  Max Drawdown:     {stats['max_drawdown_pct']:.2f}%")
         print(f"  Current Drawdown: {stats['current_drawdown_pct']:.2f}%")
         print(f"  Profit Factor:    {stats['profit_factor']:.2f}")
         print(f"  Sharpe Ratio:     {stats['sharpe_ratio']:.2f}")
         
-        print("\n🎯 CONSISTENCY METRICS:")
+        print("\n[TARGET] CONSISTENCY METRICS:")
         print(f"  Max Consecutive Wins:   {stats['max_consecutive_wins']}")
         print(f"  Max Consecutive Losses: {stats['max_consecutive_losses']}")
         
@@ -308,7 +308,7 @@ class PerformanceTracker:
         print("  COMPARISON TO MT5 BASELINE")
         print("="*70)
         
-        print("\n📊 KEY METRICS:")
+        print("\n[CHART] KEY METRICS:")
         print(f"                    Python      MT5         Difference")
         print(f"  Total R:          {current_stats['total_r']:+7.2f}R   {baseline_stats.get('total_r', 0):+7.2f}R   {current_stats['total_r'] - baseline_stats.get('total_r', 0):+7.2f}R")
         print(f"  Trades:           {current_stats['total_trades']:7d}     {baseline_stats.get('total_trades', 0):7d}     {current_stats['total_trades'] - baseline_stats.get('total_trades', 0):+7d}")
@@ -326,6 +326,6 @@ class PerformanceTracker:
         elif r_match >= 90 and trade_match >= 90:
             print("\n✅ GOOD! Results match MT5 within 10%")
         else:
-            print("\n⚠️  Results differ from MT5 - investigate discrepancies")
+            print("\n[WARN]️  Results differ from MT5 - investigate discrepancies")
         
         print("="*70)

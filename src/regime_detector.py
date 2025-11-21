@@ -420,5 +420,5 @@ if __name__ == "__main__":
     print(f"Regime Decisiveness: {stats_trending['regime_decisiveness']:.1f}%")
     
     print("\n" + "═"*80)
-    print("✓ All regime detection tests completed!")
+    print("[OK] All regime detection tests completed!")
     print("═"*80 + "\n")

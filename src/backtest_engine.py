@@ -112,7 +112,7 @@ class BacktestEngine:
             DataFrame with OHLC + indicators + CSM
         """
         if self.verbose:
-            print(f"\n📊 Preparing data for {symbol} {year}...")
+            print(f"\n[DATA] Preparing data for {symbol} {year}...")
         
         # Load M1 data
         df_m1 = self.loader.load_pair_data(symbol, year)
@@ -121,11 +121,11 @@ class BacktestEngine:
         df = self.loader.resample_to_timeframe(df_m1, self.timeframe)
 
         if self.verbose:
-            print(f"✓ Loaded {len(df):,} {self.timeframe} bars")
+            print(f"[OK] Loaded {len(df):,} {self.timeframe} bars")
         
         # Add technical indicators
         if self.verbose:
-            print("📈 Calculating technical indicators...")
+            print("[TREND] Calculating technical indicators...")
 
         df['atr'] = self.indicators_calc.calculate_atr(df, 14)
         df['ema_fast'] = self.indicators_calc.calculate_ema(df, 20)
@@ -168,7 +168,7 @@ class BacktestEngine:
                 df.loc[current_time, 'csm_diff'] = diff
 
         if self.verbose:
-            print("✓ Data preparation complete!\n")
+            print("[OK] Data preparation complete!\n")
 
         return df
     
@@ -208,11 +208,11 @@ class BacktestEngine:
         self.df = df
         self.indicators = self.indicators_calc
         
-        print(f"\n🎯 Testing period: {df.index[0].date()} to {df.index[-1].date()}")
-        print(f"📊 Total bars: {len(df):,}")
-        print(f"💰 Initial balance: ${self.initial_balance:,.2f}")
-        print(f"⚠️  Risk per trade: {self.risk_percent}%")
-        print(f"📈 Max positions: {self.max_positions}")
+        print(f"\n[TEST] Testing period: {df.index[0].date()} to {df.index[-1].date()}")
+        print(f"[INFO] Total bars: {len(df):,}")
+        print(f"[BAL] Initial balance: ${self.initial_balance:,.2f}")
+        print(f"[RISK] Risk per trade: {self.risk_percent}%")
+        print(f"[POS] Max positions: {self.max_positions}")
         
         print("\n" + "-"*70)
         print("Starting backtest simulation...")
@@ -344,7 +344,7 @@ class BacktestEngine:
         )
         
         if self.verbose:
-            print(f"📍 {entry_time.strftime('%Y-%m-%d %H:%M')} | "
+            print(f"[ENTRY] {entry_time.strftime('%Y-%m-%d %H:%M')} | "
                   f"{signal:4s} {strategy:12s} | "
                   f"Price: {entry_price:.5f} | "
                   f"SL: {stop_loss_price:.5f} | "
@@ -423,7 +423,7 @@ class BacktestEngine:
         )
         
         if self.verbose:
-            print(f"🔚 {exit_time.strftime('%Y-%m-%d %H:%M')} | "
+            print(f"[EXIT] {exit_time.strftime('%Y-%m-%d %H:%M')} | "
                   f"CLOSE {position.strategy:12s} | "
                   f"Price: {exit_price:.5f} | "
                   f"R: {position.r_multiple:+.2f} | "
@@ -483,4 +483,4 @@ if __name__ == "__main__":
     # Compare to MT5
     engine.compare_to_mt5_baseline()
     
-    print("\n✅ Backtest complete!")
+    print("\n[OK] Backtest complete!")

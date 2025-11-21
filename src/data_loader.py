@@ -58,7 +58,7 @@ class DataLoader:
         # Check cache first
         cache_key = f"{pair}_{year}_M1"
         if cache_key in self.loaded_data:
-            print(f"✓ Loading {pair} from cache")
+            print(f"[OK] Loading {pair} from cache")
             return self.loaded_data[cache_key].copy()
         
         # Build file path: data/EURUSD_sml/2024_M1.csv
@@ -68,7 +68,7 @@ class DataLoader:
         if not csv_file.exists():
             raise FileNotFoundError(f"Data file not found: {csv_file}")
         
-        print(f"📂 Loading {pair} data from {csv_file}...")
+        print(f"[LOAD] Loading {pair} data from {csv_file}...")
         
         # Load tab-delimited CSV
         df = pd.read_csv(csv_file, sep='\t')
@@ -110,7 +110,7 @@ class DataLoader:
         # Cache the data
         self.loaded_data[cache_key] = df.copy()
         
-        print(f"✓ Loaded {len(df):,} M1 bars for {pair}")
+        print(f"[OK] Loaded {len(df):,} M1 bars for {pair}")
         print(f"  Date range: {df.index[0]} to {df.index[-1]}")
         print(f"  Price range: {df['low'].min():.5f} - {df['high'].max():.5f}")
         
@@ -143,7 +143,7 @@ class DataLoader:
         
         rule = timeframe_map[timeframe]
         
-        print(f"⏱️  Resampling to {timeframe}...")
+        print(f"[TIME]  Resampling to {timeframe}...")
         
         # Resample using OHLC aggregation
         resampled = df.resample(rule).agg({
@@ -160,7 +160,7 @@ class DataLoader:
         # Remove any rows with NaN (incomplete periods)
         resampled.dropna(subset=['open', 'high', 'low', 'close'], inplace=True)
         
-        print(f"✓ Resampled to {len(resampled):,} {timeframe} bars")
+        print(f"[OK] Resampled to {len(resampled):,} {timeframe} bars")
         
         return resampled
     
@@ -198,11 +198,11 @@ class DataLoader:
                 print()  # Blank line between pairs
                 
             except Exception as e:
-                print(f"❌ Error loading {pair}: {e}")
+                print(f"[ERROR] Error loading {pair}: {e}")
                 continue
         
         print(f"{'═'*80}")
-        print(f"✓ Successfully loaded {len(data_dict)}/{len(pairs)} pairs")
+        print(f"[OK] Successfully loaded {len(data_dict)}/{len(pairs)} pairs")
         print(f"{'═'*80}\n")
         
         return data_dict
@@ -218,7 +218,7 @@ class DataLoader:
         # Check for NaN values
         nan_count = df[['open', 'high', 'low', 'close']].isna().sum().sum()
         if nan_count > 0:
-            print(f"⚠️  Warning: {nan_count} NaN values found in {pair} OHLC data")
+            print(f"[WARN]  Warning: {nan_count} NaN values found in {pair} OHLC data")
         
         # Check OHLC relationships (high >= low, etc.)
         invalid_hl = (df['high'] < df['low']).sum()
@@ -230,7 +230,7 @@ class DataLoader:
         total_invalid = invalid_hl + invalid_oh + invalid_ol + invalid_ch + invalid_cl
         
         if total_invalid > 0:
-            print(f"⚠️  Warning: {total_invalid} invalid OHLC relationships in {pair}")
+            print(f"[WARN]  Warning: {total_invalid} invalid OHLC relationships in {pair}")
             print(f"    High < Low: {invalid_hl}")
             print(f"    Open > High: {invalid_oh}")
             print(f"    Open < Low: {invalid_ol}")
@@ -240,7 +240,7 @@ class DataLoader:
         # Check for duplicate timestamps
         duplicates = df.index.duplicated().sum()
         if duplicates > 0:
-            print(f"⚠️  Warning: {duplicates} duplicate timestamps in {pair}")
+            print(f"[WARN]  Warning: {duplicates} duplicate timestamps in {pair}")
             # Remove duplicates, keep last
             df = df[~df.index.duplicated(keep='last')]
         
@@ -249,7 +249,7 @@ class DataLoader:
         expected_diff = pd.Timedelta(minutes=1)
         gaps = (time_diff > expected_diff * 5).sum()  # Gaps > 5 minutes
         if gaps > 0:
-            print(f"⚠️  Info: {gaps} gaps detected in {pair} M1 data (weekends/holidays expected)")
+            print(f"[WARN]  Info: {gaps} gaps detected in {pair} M1 data (weekends/holidays expected)")
     
     def get_date_range(self, df: pd.DataFrame) -> Tuple[datetime, datetime]:
         """Get start and end dates from DataFrame"""
@@ -317,7 +317,7 @@ if __name__ == "__main__":
     print("-"*80)
     try:
         eurusd_m1 = loader.load_pair_data('EURUSD', 2024)
-        print(f"✓ Test 1 PASSED")
+        print(f"[OK] Test 1 PASSED")
         print(f"  Shape: {eurusd_m1.shape}")
         print(f"  Columns: {eurusd_m1.columns.tolist()}")
         print(f"\nFirst 3 bars:")
@@ -325,21 +325,21 @@ if __name__ == "__main__":
         print(f"\nLast 3 bars:")
         print(eurusd_m1.tail(3))
     except Exception as e:
-        print(f"✗ Test 1 FAILED: {e}")
+        print(f"[X] Test 1 FAILED: {e}")
     
     print("\n" + "-"*80)
     print("TEST 2: Resample to H1")
     print("-"*80)
     try:
         eurusd_h1 = loader.resample_to_timeframe(eurusd_m1, 'H1')
-        print(f"✓ Test 2 PASSED")
+        print(f"[OK] Test 2 PASSED")
         print(f"  M1 bars: {len(eurusd_m1):,}")
         print(f"  H1 bars: {len(eurusd_h1):,}")
         print(f"  Ratio: {len(eurusd_m1)/len(eurusd_h1):.1f}x")
         print(f"\nFirst H1 bar:")
         print(eurusd_h1.head(1))
     except Exception as e:
-        print(f"✗ Test 2 FAILED: {e}")
+        print(f"[X] Test 2 FAILED: {e}")
     
     print("\n" + "-"*80)
     print("TEST 3: Load multiple pairs")
@@ -347,22 +347,22 @@ if __name__ == "__main__":
     try:
         test_pairs = ['EURUSD', 'GBPUSD']
         multi_data = loader.load_multiple_pairs(test_pairs, 2024, 'H1')
-        print(f"✓ Test 3 PASSED")
+        print(f"[OK] Test 3 PASSED")
         for pair, df in multi_data.items():
             print(f"  {pair}: {len(df):,} H1 bars")
     except Exception as e:
-        print(f"✗ Test 3 FAILED: {e}")
+        print(f"[X] Test 3 FAILED: {e}")
     
     print("\n" + "-"*80)
     print("TEST 4: Date range filtering")
     print("-"*80)
     try:
         jan_mar = loader.filter_by_date_range(eurusd_h1, '2024-01-01', '2024-03-31')
-        print(f"✓ Test 4 PASSED")
+        print(f"[OK] Test 4 PASSED")
         print(f"  Filtered bars: {len(jan_mar):,}")
         print(f"  Date range: {jan_mar.index[0]} to {jan_mar.index[-1]}")
     except Exception as e:
-        print(f"✗ Test 4 FAILED: {e}")
+        print(f"[X] Test 4 FAILED: {e}")
     
     print("\n" + "═"*80)
     print("ALL TESTS COMPLETE")

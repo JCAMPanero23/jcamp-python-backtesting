@@ -112,6 +112,86 @@ This Python-based backtesting engine replicates and extends the functionality of
 
 ---
 
+## 🔗 **Symbolic Link Setup: CSMMonitor Integration**
+
+### **Overview**
+
+The `CSMMonitor` folder is a **symbolic link** to the C# WPF monitoring application repository. This allows seamless cross-project development between the Python backtesting engine and the C# monitoring interface.
+
+### **Symbolic Link Details**
+
+**Link Location:**
+```
+D:\JcampFxTrading\jcamp-python-backtesting\CSMMonitor\
+```
+
+**Target Directory:**
+```
+C:\Users\jcamp\OneDrive\Documents\Visual Studio 2022\Projects\CSMMonitor
+```
+
+**Git Repository:**
+```
+https://github.com/JCAMPanero23/CSMMonitor
+```
+
+### **Access Control**
+
+**Read/Write Permissions:**
+- Full read/write access to all files within the symbolic link
+- Modifications made through the symbolic link are reflected in the original C# project
+- Changes can be committed directly to the CSMMonitor repository
+
+**Important Notes:**
+- Any edits made in `D:\JcampFxTrading\jcamp-python-backtesting\CSMMonitor\` will modify files in the actual C# project location
+- Git operations (commit, push, pull) should be performed within the CSMMonitor directory
+- The symbolic link allows both Visual Studio and Claude Code to access the same files
+
+### **Creating the Symbolic Link**
+
+If you need to recreate the symbolic link, run this command as Administrator:
+
+```bash
+mklink /D "D:\JcampFxTrading\jcamp-python-backtesting\CSMMonitor" "C:\Users\jcamp\OneDrive\Documents\Visual Studio 2022\Projects\CSMMonitor"
+```
+
+### **Git Workflow for CSMMonitor**
+
+When working on the C# monitoring application through this project:
+
+```bash
+# Navigate to CSMMonitor directory
+cd CSMMonitor
+
+# Check status
+git status
+
+# Stage changes
+git add .
+
+# Commit changes
+git commit -m "Description of changes"
+
+# Push to GitHub
+git push origin main
+
+# Pull latest changes
+git pull origin main
+```
+
+### **Integration Benefits**
+
+- **Unified Workspace:** Work on both Python and C# projects in one location
+- **Version Control:** Maintain separate git histories for each project
+- **API Development:** Easily test API endpoints from C# while developing in Python
+- **Rapid Iteration:** Make changes to the C# UI and see immediate results with Python backend
+
+### **Caution**
+
+⚠️ **Warning:** Deleting or modifying the symbolic link does NOT delete the original C# project. However, be careful when using file operations that might follow symbolic links unexpectedly.
+
+---
+
 ## 📦 **Installation**
 
 ### **Prerequisites**

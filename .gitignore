@@ -1,1 +1,13 @@
 venv/
+
+# Test outputs and samples
+tests/outputs/
+tests/samples/
+*.pyc
+__pycache__/
+
+# Charts
+charts/
+
+# Claude configuration
+.claude/

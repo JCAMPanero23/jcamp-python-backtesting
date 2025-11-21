@@ -35,19 +35,22 @@ class BacktestEngine:
         self,
         initial_balance: float = 10000.0,
         risk_percent: float = 2.0,
-        max_positions: int = 2
+        max_positions: int = 2,
+        timeframe: str = 'M15'
     ):
         """
         Initialize backtest engine.
-        
+
         Args:
             initial_balance: Starting balance
             risk_percent: Risk per trade as percentage
             max_positions: Max concurrent positions
+            timeframe: Chart timeframe (M15, H1, H4, etc.)
         """
         self.initial_balance = initial_balance
         self.risk_percent = risk_percent
         self.max_positions = max_positions
+        self.timeframe = timeframe
         
         # Initialize components
         self.position_manager = PositionManager(max_positions)
@@ -113,61 +116,61 @@ class BacktestEngine:
         
         # Load M1 data
         df_m1 = self.loader.load_pair_data(symbol, year)
-        
-        # Resample to H1
-        df_h1 = self.loader.resample_to_timeframe(df_m1, 'H1')
-        
+
+        # Resample to specified timeframe
+        df = self.loader.resample_to_timeframe(df_m1, self.timeframe)
+
         if self.verbose:
-            print(f"✓ Loaded {len(df_h1):,} H1 bars")
+            print(f"✓ Loaded {len(df):,} {self.timeframe} bars")
         
         # Add technical indicators
         if self.verbose:
             print("📈 Calculating technical indicators...")
-        
-        df_h1['atr'] = self.indicators_calc.calculate_atr(df_h1, 14)
-        df_h1['ema_fast'] = self.indicators_calc.calculate_ema(df_h1, 20)
-        df_h1['ema_mid'] = self.indicators_calc.calculate_ema(df_h1, 35)
-        df_h1['ema_slow'] = self.indicators_calc.calculate_ema(df_h1, 50)
-        
-        adx_series, plus_di_series, minus_di_series = self.indicators_calc.calculate_adx(df_h1, 14)
-        df_h1['adx'] = adx_series
-        df_h1['plus_di'] = plus_di_series
-        df_h1['minus_di'] = minus_di_series
-        
+
+        df['atr'] = self.indicators_calc.calculate_atr(df, 14)
+        df['ema_fast'] = self.indicators_calc.calculate_ema(df, 20)
+        df['ema_mid'] = self.indicators_calc.calculate_ema(df, 50)
+        df['ema_slow'] = self.indicators_calc.calculate_ema(df, 100)
+
+        adx_series, plus_di_series, minus_di_series = self.indicators_calc.calculate_adx(df, 14)
+        df['adx'] = adx_series
+        df['plus_di'] = plus_di_series
+        df['minus_di'] = minus_di_series
+
         # Add RSI for Range Rider
-        df_h1['rsi'] = 50.0  # Simplified for now
-        
+        df['rsi'] = 50.0  # Simplified for now
+
         # Add CSM columns
-        df_h1['csm_base'] = 50.0
-        df_h1['csm_quote'] = 50.0
-        df_h1['csm_diff'] = 0.0
-        
+        df['csm_base'] = 50.0
+        df['csm_quote'] = 50.0
+        df['csm_diff'] = 0.0
+
         if self.verbose:
             print("💪 Calculating Currency Strength Meter...")
-        
+
         # Calculate CSM for each bar
-        pair_data = {symbol: df_h1}
+        pair_data = {symbol: df}
         base, quote = symbol[:3], symbol[3:6]
-        
-        for idx in range(len(df_h1)):
-            current_time = df_h1.index[idx]
-            
+
+        for idx in range(len(df)):
+            current_time = df.index[idx]
+
             # Update CSM
-            success = self.csm_calc.update_csm(pair_data, current_time.to_pydatetime(), 'H1')
-            
+            success = self.csm_calc.update_csm(pair_data, current_time.to_pydatetime(), self.timeframe)
+
             if success:
                 base_strength = self.csm_calc.get_currency_strength(base)
                 quote_strength = self.csm_calc.get_currency_strength(quote)
                 diff = base_strength - quote_strength
-                
-                df_h1.loc[current_time, 'csm_base'] = base_strength
-                df_h1.loc[current_time, 'csm_quote'] = quote_strength
-                df_h1.loc[current_time, 'csm_diff'] = diff
-        
+
+                df.loc[current_time, 'csm_base'] = base_strength
+                df.loc[current_time, 'csm_quote'] = quote_strength
+                df.loc[current_time, 'csm_diff'] = diff
+
         if self.verbose:
             print("✓ Data preparation complete!\n")
-        
-        return df_h1
+
+        return df
     
     def run_backtest(
         self,
@@ -194,12 +197,16 @@ class BacktestEngine:
         
         # Prepare data
         df = self.prepare_data(symbol, year)
-        
+
         # Filter date range if specified
         if start_date:
             df = df[df.index >= pd.Timestamp(start_date)]
         if end_date:
             df = df[df.index <= pd.Timestamp(end_date)]
+
+        # Store dataframe and indicators for chart generation
+        self.df = df
+        self.indicators = self.indicators_calc
         
         print(f"\n🎯 Testing period: {df.index[0].date()} to {df.index[-1].date()}")
         print(f"📊 Total bars: {len(df):,}")

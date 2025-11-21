@@ -15,6 +15,7 @@ class BacktestRequest(BaseModel):
     start_date: str = Field(..., description="Start date (YYYY-MM-DD)")
     end_date: str = Field(..., description="End date (YYYY-MM-DD)")
     strategy: str = Field("both", description="Strategy: trend_rider, range_rider, or both")
+    timeframe: str = Field("M15", description="Chart timeframe: M15, H1, or H4")
     initial_balance: float = Field(10000.0, description="Starting balance in dollars")
     risk_percent: float = Field(2.0, description="Risk per trade as percentage")
     max_positions: int = Field(2, description="Maximum concurrent positions")
@@ -34,6 +35,14 @@ class BacktestRequest(BaseModel):
         valid_strategies = ['trend_rider', 'range_rider', 'both']
         if v not in valid_strategies:
             raise ValueError(f'Strategy must be one of {valid_strategies}')
+        return v
+
+    @validator('timeframe')
+    def validate_timeframe(cls, v):
+        """Validate timeframe selection"""
+        valid_timeframes = ['M15', 'H1', 'H4']
+        if v not in valid_timeframes:
+            raise ValueError(f'Timeframe must be one of {valid_timeframes}')
         return v
 
     @validator('start_date', 'end_date')
@@ -66,6 +75,7 @@ class BacktestRequest(BaseModel):
                 "start_date": "2024-01-01",
                 "end_date": "2024-12-31",
                 "strategy": "both",
+                "timeframe": "M15",
                 "initial_balance": 10000.0,
                 "risk_percent": 2.0,
                 "max_positions": 2,

@@ -4,8 +4,10 @@ Core routes for backtest execution and results retrieval
 """
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse
 from typing import List
 import uuid
+import os
 
 from src.api.models.requests import BacktestRequest, ConfigValidationRequest
 from src.api.models.responses import (
@@ -114,6 +116,68 @@ async def list_backtests():
     Returns a list of all backtest tasks with their current status
     """
     return backtest_service.list_tasks()
+
+
+@router.get("/{task_id}/charts", response_class=HTMLResponse, tags=["Backtest"])
+async def get_backtest_charts(task_id: str):
+    """
+    Get interactive backtest charts (HTML page)
+
+    Returns an HTML page with candlestick chart showing trades
+    and equity curve with performance metrics.
+    """
+    task = backtest_service.tasks.get(task_id)
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task["status"] != "complete":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Backtest not complete. Current status: {task['status']}"
+        )
+
+    chart_path = task.get("chart_path")
+    if not chart_path or not os.path.exists(chart_path):
+        raise HTTPException(
+            status_code=404,
+            detail="Charts not available for this backtest"
+        )
+
+    # Return HTML file content
+    with open(chart_path, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+
+    return HTMLResponse(content=html_content)
+
+
+@router.get("/{task_id}/ohlc", tags=["Backtest"])
+async def get_backtest_ohlc(task_id: str):
+    """
+    Get OHLC candlestick data for chart visualization
+
+    Returns candlestick data (open, high, low, close), indicators,
+    and active/closed trade information for visual chart playback.
+    """
+    task = backtest_service.tasks.get(task_id)
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task["status"] != "complete":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Backtest not complete. Current status: {task['status']}"
+        )
+
+    ohlc_data = task.get("ohlc_data")
+    if not ohlc_data:
+        raise HTTPException(
+            status_code=404,
+            detail="OHLC data not available for this backtest"
+        )
+
+    return ohlc_data
 
 
 @router.delete("/{task_id}", tags=["Backtest"])

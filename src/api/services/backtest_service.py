@@ -5,9 +5,15 @@ Orchestrates backtest execution and task management
 
 import time
 import traceback
+import os
 from typing import Dict, Optional
 from datetime import datetime
 from src.backtest_engine import BacktestEngine
+from src.visualization.chart_generator import (
+    generate_candlestick_chart,
+    generate_equity_curve,
+    save_charts_to_html
+)
 from src.api.models.requests import BacktestRequest
 from src.api.models.responses import (
     BacktestStatus,
@@ -28,6 +34,10 @@ class BacktestService:
     def __init__(self):
         """Initialize service with in-memory task storage"""
         self.tasks: Dict[str, Dict] = {}
+
+        # Create charts directory if it doesn't exist
+        self.charts_dir = os.path.join(os.getcwd(), "charts")
+        os.makedirs(self.charts_dir, exist_ok=True)
 
     def create_task(self, task_id: str, request: BacktestRequest):
         """Create a new backtest task"""
@@ -67,7 +77,8 @@ class BacktestService:
             engine = BacktestEngine(
                 initial_balance=request.get("initial_balance", 10000.0),
                 risk_percent=request.get("risk_percent", 2.0),
-                max_positions=request.get("max_positions", 2)
+                max_positions=request.get("max_positions", 2),
+                timeframe=request.get("timeframe", "M15")
             )
 
             # Extract year from start_date
@@ -91,12 +102,25 @@ class BacktestService:
             # Transform results to API response format
             api_results = self._transform_results(task_id, request, results)
 
+            # Generate charts
+            task["progress"] = 95.0
+            task["message"] = "Generating charts..."
+            chart_path = self._generate_charts(task_id, request, results, api_results, engine)
+            api_results["chart_url"] = f"/api/v1/backtest/{task_id}/charts"
+
+            # Prepare OHLC data for chart viewer
+            task["progress"] = 97.0
+            task["message"] = "Preparing OHLC data..."
+            ohlc_data = self._prepare_ohlc_data(request, api_results, engine)
+
             # Mark as complete
             task["status"] = "complete"
             task["progress"] = 100.0
             task["message"] = "Backtest completed successfully"
             task["completed_at"] = datetime.utcnow().isoformat() + "Z"
             task["results"] = api_results
+            task["chart_path"] = chart_path
+            task["ohlc_data"] = ohlc_data
 
         except Exception as e:
             # Mark as failed
@@ -192,6 +216,151 @@ class BacktestService:
             "trades": api_trades,
             "equity_curve": api_equity
         }
+
+    def _generate_charts(
+        self,
+        task_id: str,
+        request: Dict,
+        engine_results: Dict,
+        api_results: Dict,
+        engine: 'BacktestEngine'
+    ) -> str:
+        """
+        Generate interactive charts for backtest results.
+
+        Returns path to saved HTML file
+        """
+        try:
+            import pandas as pd
+
+            # Get OHLC data from engine
+            df = engine.df.copy()
+
+            # Extract indicators from dataframe
+            indicators = {}
+            if 'ema_fast' in df.columns:
+                indicators['EMA_Fast'] = df['ema_fast']
+            if 'ema_mid' in df.columns:
+                indicators['EMA_Mid'] = df['ema_mid']
+            if 'ema_slow' in df.columns:
+                indicators['EMA_Slow'] = df['ema_slow']
+            if 'rsi' in df.columns:
+                indicators['RSI'] = df['rsi']
+            if 'adx' in df.columns:
+                indicators['ADX'] = df['adx']
+
+            # Generate candlestick chart
+            candlestick_fig = generate_candlestick_chart(
+                df=df,
+                trades=api_results['trades'],
+                indicators=indicators,
+                symbol=request['symbol'],
+                title_suffix=f"({request['start_date']} to {request['end_date']})"
+            )
+
+            # Generate equity curve
+            equity_fig = generate_equity_curve(
+                equity_data=api_results['equity_curve'],
+                trades=api_results['trades'],
+                initial_balance=request.get('initial_balance', 10000.0),
+                symbol=request['symbol']
+            )
+
+            # Save charts to HTML
+            chart_filename = f"backtest_{task_id}.html"
+            chart_path = os.path.join(self.charts_dir, chart_filename)
+            save_charts_to_html(candlestick_fig, equity_fig, chart_path)
+
+            print(f"✅ Charts generated: {chart_path}")
+            return chart_path
+
+        except Exception as e:
+            print(f"⚠️ Chart generation failed: {e}")
+            traceback.print_exc()
+            return None
+
+    def _prepare_ohlc_data(
+        self,
+        request: Dict,
+        api_results: Dict,
+        engine: 'BacktestEngine'
+    ) -> Dict:
+        """
+        Prepare OHLC candlestick data for C# chart viewer.
+
+        Returns comprehensive data for visual playback including:
+        - Candlestick OHLC data
+        - Indicator values (EMAs, RSI, ADX)
+        - Trade information with TP/SL levels
+        """
+        try:
+            import pandas as pd
+
+            # Get OHLC dataframe from engine
+            df = engine.df.copy()
+
+            # Prepare candlestick data
+            candles = []
+            for idx, row in df.iterrows():
+                candle = {
+                    "timestamp": idx.isoformat() if isinstance(idx, datetime) else idx,
+                    "open": float(row['open']),
+                    "high": float(row['high']),
+                    "low": float(row['low']),
+                    "close": float(row['close']),
+                    "ema_fast": float(row.get('ema_fast', 0)) if not pd.isna(row.get('ema_fast', 0)) else None,
+                    "ema_mid": float(row.get('ema_mid', 0)) if not pd.isna(row.get('ema_mid', 0)) else None,
+                    "ema_slow": float(row.get('ema_slow', 0)) if not pd.isna(row.get('ema_slow', 0)) else None,
+                    "rsi": float(row.get('rsi', 50)) if not pd.isna(row.get('rsi', 50)) else 50.0,
+                    "adx": float(row.get('adx', 0)) if not pd.isna(row.get('adx', 0)) else None
+                }
+                candles.append(candle)
+
+            # Prepare trade data with TP/SL levels
+            trades_with_levels = []
+            for trade in api_results['trades']:
+                r_mult = trade.get('r_multiple', 0)
+                trade_data = {
+                    "ticket_number": int(trade['position_id']),
+                    "symbol": str(trade['symbol']),
+                    "side": str(trade['side']),
+                    "strategy": str(trade['strategy']),
+                    "entry_time": str(trade['entry_time']),
+                    "exit_time": str(trade['exit_time']) if trade.get('exit_time') else None,
+                    "entry_price": float(trade['entry_price']),
+                    "exit_price": float(trade['exit_price']) if trade.get('exit_price') else None,
+                    "stop_loss": float(trade.get('stop_loss')) if trade.get('stop_loss') else None,
+                    "take_profit": float(trade.get('take_profit')) if trade.get('take_profit') else None,
+                    "r_multiple": float(r_mult) if r_mult is not None else None,
+                    "profit_loss": float(trade.get('profit_loss')) if trade.get('profit_loss') else None,
+                    "exit_reason": str(trade.get('exit_reason')) if trade.get('exit_reason') else None,
+                    "is_win": bool(float(r_mult) > 0) if r_mult is not None else False
+                }
+                trades_with_levels.append(trade_data)
+
+            result = {
+                "symbol": request['symbol'],
+                "start_date": request['start_date'],
+                "end_date": request['end_date'],
+                "timeframe": request.get('timeframe', 'M15'),
+                "candles": candles,
+                "trades": trades_with_levels,
+                "pip_size": 0.0001,  # For most pairs
+                "decimal_places": 5
+            }
+
+            print(f"✅ OHLC data prepared: {len(candles)} candles, {len(trades_with_levels)} trades")
+            return result
+
+        except Exception as e:
+            print(f"⚠️ OHLC data preparation failed: {e}")
+            traceback.print_exc()
+            return {
+                "symbol": request.get('symbol', 'UNKNOWN'),
+                "candles": [],
+                "trades": [],
+                "error": str(e)
+            }
 
     def get_task_status(self, task_id: str) -> Optional[Dict]:
         """Get current status of a task"""

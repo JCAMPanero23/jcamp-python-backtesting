@@ -10,7 +10,7 @@ echo Waiting for API server to start...
 timeout /t 3 /nobreak > nul
 
 echo Starting Monitor App...
-start "JCAMP Monitor App" cmd /k "cd /d C:\Users\jcamp\OneDrive\Documents\Visual Studio 2022\Projects\CSMMonitor && dotnet run --project JcampForexTrader\JcampForexTrader.csproj"
+start "JCAMP Monitor App" cmd /k "cd /d D:\JcampFxTrading\CSMMonitor && dotnet run --project JcampForexTrader\JcampForexTrader.csproj"
 
 echo.
 echo Both services started!

@@ -22,6 +22,7 @@ from src.indicators import TechnicalIndicators
 from src.regime_detector import RegimeDetector
 from src.strategies.trend_rider import TrendRiderStrategy
 from src.strategies.range_rider import RangeRiderStrategy
+from src.strategies.simple_test import SimpleTestStrategy
 from src.position_manager import PositionManager, Position, ExitReason, PositionSide
 from src.performance_tracker import PerformanceTracker
 
@@ -64,6 +65,7 @@ class BacktestEngine:
         
         # Strategy components
         config = self._get_config()
+        self.simple_test = SimpleTestStrategy(config)
         self.trend_rider = TrendRiderStrategy(config)
         self.range_rider = RangeRiderStrategy(config)
         
@@ -272,28 +274,40 @@ class BacktestEngine:
         else:
             regime = str(regime).split('.')[-1] if '.' in str(regime) else str(regime)
         
-        # Check Trend Rider
-        tr_signal, tr_confidence, tr_details = self.trend_rider.generate_signal(
+        # Check Simple Test Strategy (for chart testing)
+        st_signal, st_confidence, st_details = self.simple_test.generate_signal(
             df, idx, csm_data, regime
         )
-        
-        if tr_signal != 'NONE':
+
+        if st_signal != 'NONE':
             self._open_position(
-                symbol, tr_signal, current_price, current_time,
-                df, idx, 'TREND_RIDER', tr_confidence, regime
+                symbol, st_signal, current_price, current_time,
+                df, idx, 'SIMPLE_TEST', st_confidence, regime
             )
             return  # One entry per bar
-        
-        # Check Range Rider
-        rr_signal, rr_confidence, rr_details = self.range_rider.generate_signal(
-            df, idx, csm_data, regime
-        )
-        
-        if rr_signal != 'NONE':
-            self._open_position(
-                symbol, rr_signal, current_price, current_time,
-                df, idx, 'RANGE_RIDER', rr_confidence, regime
-            )
+
+        # DISABLED FOR TESTING: Check Trend Rider
+        # tr_signal, tr_confidence, tr_details = self.trend_rider.generate_signal(
+        #     df, idx, csm_data, regime
+        # )
+        #
+        # if tr_signal != 'NONE':
+        #     self._open_position(
+        #         symbol, tr_signal, current_price, current_time,
+        #         df, idx, 'TREND_RIDER', tr_confidence, regime
+        #     )
+        #     return  # One entry per bar
+
+        # DISABLED FOR TESTING: Check Range Rider
+        # rr_signal, rr_confidence, rr_details = self.range_rider.generate_signal(
+        #     df, idx, csm_data, regime
+        # )
+        #
+        # if rr_signal != 'NONE':
+        #     self._open_position(
+        #         symbol, rr_signal, current_price, current_time,
+        #         df, idx, 'RANGE_RIDER', rr_confidence, regime
+        #     )
     
     def _open_position(
         self,
@@ -308,11 +322,16 @@ class BacktestEngine:
         regime: str
     ):
         """Open a new position."""
-        # Calculate stop loss
-        if strategy == 'TREND_RIDER':
-            stop_loss_distance = self.trend_rider.get_stop_loss(df, idx, signal)
+        # Get strategy object
+        if strategy == 'SIMPLE_TEST':
+            strategy_obj = self.simple_test
+        elif strategy == 'TREND_RIDER':
+            strategy_obj = self.trend_rider
         else:  # RANGE_RIDER
-            stop_loss_distance = self.range_rider.get_stop_loss(df, idx, signal)
+            strategy_obj = self.range_rider
+
+        # Calculate stop loss
+        stop_loss_distance = strategy_obj.get_stop_loss(df, idx, signal)
         
         # Calculate stop loss price
         if signal == 'BUY':
@@ -328,6 +347,12 @@ class BacktestEngine:
         
         # Calculate take profit (optional - can be None for trailing only)
         take_profit = None
+        if hasattr(strategy_obj, 'get_take_profit'):
+            tp_distance = strategy_obj.get_take_profit(df, idx, signal)
+            if signal == 'BUY':
+                take_profit = entry_price + tp_distance
+            else:  # SELL
+                take_profit = entry_price - tp_distance
         
         # Open position
         position = self.position_manager.open_position(

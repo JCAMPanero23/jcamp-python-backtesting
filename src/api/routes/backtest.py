@@ -180,6 +180,37 @@ async def get_backtest_ohlc(task_id: str):
     return ohlc_data
 
 
+@router.get("/{task_id}/ohlc-m1", tags=["Backtest"])
+async def get_backtest_ohlc_m1(task_id: str):
+    """
+    Get M1 (1-minute) OHLC candlestick data for enhanced playback
+
+    Returns M1-level candlestick data for smooth chart playback.
+    This provides 15x more granular price movement than M15 data.
+    """
+    task = backtest_service.tasks.get(task_id)
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task["status"] != "complete":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Backtest not complete. Current status: {task['status']}"
+        )
+
+    # Get M1 OHLC data
+    m1_data = backtest_service.get_m1_ohlc_data(task_id)
+
+    if not m1_data:
+        raise HTTPException(
+            status_code=404,
+            detail="M1 data not available for this backtest"
+        )
+
+    return m1_data
+
+
 @router.delete("/{task_id}", tags=["Backtest"])
 async def delete_backtest(task_id: str):
     """

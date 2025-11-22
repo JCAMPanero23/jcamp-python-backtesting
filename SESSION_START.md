@@ -2,8 +2,8 @@
 
 **Purpose:** This document provides immediate context when starting a new session. Read this FIRST before diving into work.
 
-**Last Updated:** November 21, 2025
-**Session:** Post-Phase 5 Maintenance & Documentation
+**Last Updated:** November 22, 2025
+**Session:** M1 Playback Animation & UX Improvements
 
 ---
 
@@ -20,7 +20,43 @@
 
 ---
 
-## WHAT HAPPENED LAST SESSION (Nov 21, 2025)
+## WHAT HAPPENED THIS SESSION (Nov 22, 2025)
+
+### M1 Playback Animation Feature
+1. **Animated M15 Candle Formation**
+   - **Goal:** Show M15 candles animating/forming as M1 data progresses
+   - **Implementation:** Built M15 candles dynamically from M1 bars
+   - **Behavior:** Like watching live MT5 candle form in real-time
+   - **Files:** ChartViewerWindow.xaml.cs - added `BuildAnimatedM15Candles()` method
+   - **Result:** 15x smoother playback visualization
+
+2. **Smart Viewport Y-Axis Following**
+   - **Goal:** Only follow price if it moves outside middle 35% zone
+   - **Logic:** Price can move within central 35% without viewport adjustment
+   - **Threshold:** Follow only if price < 32.5% or > 67.5% from bottom
+   - **Files:** ChartViewerWindow.xaml.cs - added `ShouldFollowPrice()` helper
+   - **Result:** Smoother viewing experience, less unnecessary viewport jumps
+
+### UX Improvements
+3. **DatePicker Dark Theme Fix**
+   - **Issue:** Calendar had grayed-out text on dark background (poor contrast)
+   - **Fix:** Added comprehensive CalendarDayButton and CalendarButton styles
+   - **Files:** BacktestWindow.xaml - expanded Window.Resources
+   - **Result:** Calendar now fully readable with white text
+
+4. **Default Dates Updated**
+   - **Changed:** From dynamic dates to fixed Jan 1-31, 2024
+   - **Files:** BacktestWindow.xaml.cs - constructor default dates
+   - **Result:** No more manual date entry needed
+
+5. **Batch File Improvements**
+   - **Fixed:** START_ALL.bat, START_MONITOR_APP.bat, START_API_SERVER.bat
+   - **Improvements:** Python availability checks, better error messages, runs pre-built .exe
+   - **Result:** Faster startup, better user experience
+
+---
+
+## WHAT HAPPENED PREVIOUS SESSION (Nov 21, 2025)
 
 ### Critical Bug Fixes
 1. **Windows Unicode Error (0982fdc)**

@@ -113,6 +113,11 @@ class BacktestService:
             task["message"] = "Preparing OHLC data..."
             ohlc_data = self._prepare_ohlc_data(request, api_results, engine)
 
+            # Prepare M1 OHLC data for enhanced playback
+            task["progress"] = 98.0
+            task["message"] = "Preparing M1 data for enhanced playback..."
+            m1_ohlc_data = self._prepare_m1_ohlc_data(request, engine)
+
             # Mark as complete
             task["status"] = "complete"
             task["progress"] = 100.0
@@ -121,6 +126,7 @@ class BacktestService:
             task["results"] = api_results
             task["chart_path"] = chart_path
             task["ohlc_data"] = ohlc_data
+            task["m1_ohlc_data"] = m1_ohlc_data
 
         except Exception as e:
             # Mark as failed
@@ -275,7 +281,7 @@ class BacktestService:
             return chart_path
 
         except Exception as e:
-            print(f"⚠️ Chart generation failed: {e}")
+            print(f"[WARN]️ Chart generation failed: {e}")
             traceback.print_exc()
             return None
 
@@ -353,7 +359,7 @@ class BacktestService:
             return result
 
         except Exception as e:
-            print(f"⚠️ OHLC data preparation failed: {e}")
+            print(f"[WARN]️ OHLC data preparation failed: {e}")
             traceback.print_exc()
             return {
                 "symbol": request.get('symbol', 'UNKNOWN'),
@@ -361,6 +367,79 @@ class BacktestService:
                 "trades": [],
                 "error": str(e)
             }
+
+    def _prepare_m1_ohlc_data(
+        self,
+        request: Dict,
+        engine: 'BacktestEngine'
+    ) -> Dict:
+        """
+        Prepare M1 (1-minute) OHLC data for enhanced chart playback.
+
+        Returns M1-level candlestick data for smooth price movement visualization.
+        """
+        try:
+            from src.data_loader import DataLoader
+
+            # Initialize data loader
+            loader = DataLoader(data_dir="data")
+
+            # Extract year from start_date
+            year = int(request["start_date"][:4])
+            symbol = request["symbol"]
+
+            # Load M1 data
+            print(f"[M1] Loading M1 data for {symbol} ({year})...")
+            m1_df = loader.load_pair_data(symbol, year=year)
+
+            # Filter to backtest date range
+            start_date = request["start_date"]
+            end_date = request["end_date"]
+            m1_df_filtered = m1_df.loc[start_date:end_date]
+
+            # Prepare candlestick data (simplified - no indicators for M1)
+            candles = []
+            for idx, row in m1_df_filtered.iterrows():
+                candle = {
+                    "timestamp": idx.isoformat() if isinstance(idx, datetime) else idx,
+                    "open": float(row['open']),
+                    "high": float(row['high']),
+                    "low": float(row['low']),
+                    "close": float(row['close'])
+                }
+                candles.append(candle)
+
+            result = {
+                "symbol": symbol,
+                "start_date": start_date,
+                "end_date": end_date,
+                "timeframe": "M1",
+                "candles": candles,
+                "pip_size": 0.0001,
+                "decimal_places": 5
+            }
+
+            print(f"[OK] M1 OHLC data prepared: {len(candles)} M1 candles")
+            return result
+
+        except Exception as e:
+            print(f"[WARN] M1 OHLC data preparation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "symbol": request.get('symbol', 'UNKNOWN'),
+                "timeframe": "M1",
+                "candles": [],
+                "error": str(e)
+            }
+
+    def get_m1_ohlc_data(self, task_id: str) -> Optional[Dict]:
+        """Get M1 OHLC data for a completed backtest"""
+        task = self.tasks.get(task_id)
+        if not task:
+            return None
+
+        return task.get("m1_ohlc_data")
 
     def get_task_status(self, task_id: str) -> Optional[Dict]:
         """Get current status of a task"""

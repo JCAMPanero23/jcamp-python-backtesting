@@ -54,6 +54,31 @@
    - **Improvements:** Python availability checks, better error messages, runs pre-built .exe
    - **Result:** Faster startup, better user experience
 
+### Phase 5.1 Critical Bug Fixes (Nov 22, 2025 - Continuation)
+6. **Manual Progress Slider Movement** ✅
+   - **Issue:** Slider couldn't be moved manually, only responded to play/pause
+   - **Root Cause:** Event handler triggered during programmatic updates and didn't handle M1 mode
+   - **Fix:** Added `_isUpdatingSliderProgrammatically` flag to distinguish user vs programmatic changes
+   - **Implementation:** Updated `ProgressSlider_ValueChanged` to handle both Standard and RealM1 playback modes
+   - **Features:** Added `ReplayTradesUpToBar()` and `ReplayTradesUpToM1Bar()` to recalculate stats when scrubbing
+   - **Files:** ChartViewerWindow.xaml.cs - lines 37-38, 228-230, 269-271, 939-975, 1016-1061
+   - **Result:** Users can now manually scrub through the timeline in both playback modes
+
+7. **Reset Button Functionality** ✅
+   - **Issue:** Reset button didn't work in M1 playback mode
+   - **Root Cause:** Only reset `_currentBarIndex`, not `_m1BarIndex`
+   - **Fix:** Reset both indices and call appropriate advance method based on playback mode
+   - **Files:** ChartViewerWindow.xaml.cs - ResetButton_Click (lines 990-1014)
+   - **Result:** Reset button now works correctly in both Standard and M1 playback modes
+
+8. **Zoom Scale Preservation** ✅
+   - **Issue:** Y-axis zoom level reset to default when viewport followed price
+   - **Root Cause:** Hard-coded 100 pips range when following price
+   - **Fix:** Preserve current Y-axis range (zoom level) when following, only shift center
+   - **Implementation:** Calculate `currentYRange` from existing limits, use it when centering on new price
+   - **Files:** ChartViewerWindow.xaml.cs - RenderChartUpToBar (lines 499-509), RenderM1ChartUpToBar (lines 322-332)
+   - **Result:** User's manual zoom level is now preserved when viewport auto-follows price
+
 ---
 
 ## WHAT HAPPENED PREVIOUS SESSION (Nov 21, 2025)

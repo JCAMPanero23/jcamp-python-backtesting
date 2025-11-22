@@ -204,14 +204,16 @@ class BacktestEngine:
         if start_date:
             df = df[df.index >= pd.Timestamp(start_date)]
         if end_date:
-            df = df[df.index <= pd.Timestamp(end_date)]
+            # Include the entire end date (through 23:59:59)
+            end_timestamp = pd.Timestamp(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+            df = df[df.index <= end_timestamp]
 
         # Store dataframe and indicators for chart generation
         self.df = df
         self.indicators = self.indicators_calc
-        
-        print(f"\n[TEST] Testing period: {df.index[0].date()} to {df.index[-1].date()}")
-        print(f"[INFO] Total bars: {len(df):,}")
+
+        print(f"\n[TEST] Testing period: {df.index[0]} to {df.index[-1]}")
+        print(f"[INFO] OHLC data prepared: {len(df):,} candles")
         print(f"[BAL] Initial balance: ${self.initial_balance:,.2f}")
         print(f"[RISK] Risk per trade: {self.risk_percent}%")
         print(f"[POS] Max positions: {self.max_positions}")

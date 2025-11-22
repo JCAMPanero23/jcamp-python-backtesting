@@ -392,10 +392,14 @@ class BacktestService:
             print(f"[M1] Loading M1 data for {symbol} ({year})...")
             m1_df = loader.load_pair_data(symbol, year=year)
 
-            # Filter to backtest date range
+            # Filter to backtest date range (include entire end date through 23:59:59)
+            import pandas as pd
             start_date = request["start_date"]
             end_date = request["end_date"]
-            m1_df_filtered = m1_df.loc[start_date:end_date]
+            end_timestamp = pd.Timestamp(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+            m1_df_filtered = m1_df.loc[start_date:end_timestamp]
+
+            print(f"[M1] Filtered M1 data: {len(m1_df_filtered)} bars from {m1_df_filtered.index[0]} to {m1_df_filtered.index[-1]}")
 
             # Prepare candlestick data (simplified - no indicators for M1)
             candles = []

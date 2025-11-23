@@ -2,8 +2,8 @@
 
 **Purpose:** Single authoritative reference for Claude to quickly understand the project state and start working effectively.
 
-**Last Updated:** November 23, 2025
-**Current Phase:** Phase 5.2 Complete - Timeframe Switching (H1/H4)
+**Last Updated:** November 24, 2025
+**Current Phase:** Phase 5.2 - Multi-timeframe EMA Overlay (In Progress - Debugging)
 
 ---
 
@@ -33,14 +33,20 @@
 
 ## RECENT CHANGES (Last 3 Sessions)
 
-### November 23, 2025 - Phase 5.2: Timeframe Switching
-- ✅ Implemented H1/H4 timeframe aggregation (4 M15 bars → 1 H1, 16 M15 bars → 1 H4)
-- ✅ Added ChartTimeframe enum (M15/H1/H4)
-- ✅ Recalculate EMAs for aggregated timeframes
-- ✅ Updated grid spacing (M15: 30min, H1: 6hr, H4: 24hr intervals)
-- ✅ Wired up radio button event handlers
-- ✅ Progress display shows correct timeframe label
-- ✅ Build succeeded - 0 errors, 0 warnings
+### November 24, 2025 - Phase 5.2: Multi-timeframe EMA Overlay (In Progress)
+- ✅ Restructured Phase 5.2: Changed from radio buttons (timeframe switching) to checkboxes (EMA overlay)
+- ✅ Added 9 multi-timeframe EMA properties to OhlcModels (Ema20/50/100 for M15/H1/H4)
+- ✅ Implemented PreCalculateMultiTimeframeEMAs method with linear interpolation for smoothness
+- ✅ Fixed aggregation loop conditions to include incomplete bars at end
+- ✅ Extended EMAs to all remaining M15 bars (incomplete aggregation groups)
+- ✅ Fixed speed slider width (200px) and maximum (50x)
+- ✅ Fixed viewport initialization (100 pips/1 day default)
+- ✅ Fixed X-axis zoom preservation during playback and reset
+- ❌ **Known Issue:** EMA delays persist - investigation in progress
+  - H1/H4 EMAs start later than expected
+  - All EMAs stop ~2:30 hours before last candle
+  - Root cause: Aggregation boundary conditions under investigation
+- 📝 **Documented:** CSMMonitor commit `01d81d4` with full implementation details
 
 ### November 22, 2025 - M1 Playback Animation & UX Improvements
 - ✅ Animated M15 candle formation from M1 data (15x smoother playback)
@@ -142,8 +148,18 @@ BacktestWindow → API Call → Python Backend
 
 ## KNOWN ISSUES
 
-### Active Issues
-1. **Phase 2 Test Failure** (1 test failing)
+### Active Issues (Phase 5.2)
+1. **EMA Delay Issue** (H1/H4 EMAs delayed)
+   - **Description:** EMAs appear delayed on the chart
+   - **Details:**
+     - H1/H4 EMAs start later than expected (after warm-up period)
+     - All EMAs stop ~2:30 hours before the last candle
+   - **Impact:** High (affects multi-timeframe analysis visuals)
+   - **Priority:** High (blocking Phase 5.2 completion)
+   - **Investigation:** Root cause identified in aggregation boundary logic (commit 01d81d4)
+   - **Next Steps:** Debug timestamp alignment and aggregation indices in next session
+
+2. **Phase 2 Test Failure** (1 test failing)
    - File: tests/test_phase2.py
    - Impact: Minor (96.7% pass rate)
    - Priority: Low
@@ -160,7 +176,15 @@ BacktestWindow → API Call → Python Backend
 
 ## CURRENT PRIORITIES
 
-### Immediate (Phase 5.3 - UX Enhancements)
+### Immediate (Phase 5.2 - Debugging)
+1. **Debug EMA delay issue** - H1/H4 EMAs appearing ~2:30 hours early to late
+   - Verify aggregation alignment to proper time boundaries
+   - Check timestamp mapping between timeframes
+   - Validate data export/import consistency
+   - Test with extended data windows
+2. **Verify fix effectiveness** once root cause is identified
+
+### Next (Phase 5.3 - UX Enhancements)
 1. Skip weekend gaps during playback (Fri 23:00 → Mon 00:00)
 2. Recent trades sidebar redesign (3-section tabbed layout)
 3. Scrollable recent trades list (not limited to last 5)
@@ -436,7 +460,7 @@ All 5 phases of core development are complete. The system is 85% production read
 
 **Build Date:** November 21, 2025
 **Version:** 1.0
-**Last Major Update:** November 23, 2025 (Phase 5.2 - Timeframe Switching)
+**Last Major Update:** November 24, 2025 (Phase 5.2 - Multi-timeframe EMA Overlay - Debugging)
 
 ---
 

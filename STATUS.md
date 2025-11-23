@@ -192,6 +192,44 @@ The JCAMP Python Backtesting Engine is fully operational with **Phase 5 complete
 
 ---
 
+## MT5 Baseline (v1.96) - Validation Target
+
+**Test Period:** 2024-01-01 to 2024-12-31
+**Symbol:** EURUSD.sml
+**Initial Balance:** $10,000
+**Risk per Trade:** 2%
+**Daily Loss Limit:** -6R
+
+### Overall Performance
+
+| Metric | Value |
+|--------|-------|
+| Total R-Multiple | **+16.03R** |
+| Total Trades | 149 |
+| Win Rate | 52% |
+| Net Profit | $283.02 |
+| Max Drawdown | $273.14 |
+
+### Strategy Breakdown
+
+| Strategy | R-Multiple | Wins | Losses | Win Rate |
+|----------|------------|------|--------|----------|
+| Trend Rider | +9.18R | 60 | 61 | 49.6% |
+| Range Rider | +6.86R | 18 | 10 | 64.3% |
+| **Combined** | **+16.03R** | **78** | **71** | **52.3%** |
+
+### Validation Status
+
+⚠️ **IMPORTANT:** All backtest results before November 21, 2025 are INVALID due to EMA period mismatch bug.
+
+- **Bug Fixed:** Nov 21, 2025 (Commit 44c056b)
+- **Issue:** EMA periods were 20/35/50 instead of 20/50/100
+- **Action Required:** Must re-run EURUSD 2024 baseline with corrected EMAs to validate Python implementation
+
+**Reference File:** Previously documented in `baseline_mt5_v196.txt` (now integrated here)
+
+---
+
 ## Known Issues
 
 ### Fixed Issues ✅

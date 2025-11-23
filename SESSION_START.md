@@ -135,9 +135,10 @@
 ## ESSENTIAL FILES TO REVIEW
 
 ### Documentation (Read First)
-1. `STATUS.md` - Comprehensive project status
-2. `README.md` - Project overview and setup
-3. `SESSION_START.md` - This file
+1. **`CLAUDE.md`** - **START HERE!** Quick reference for Claude sessions (consolidated overview)
+2. `SESSION_START.md` - This file (detailed session history and checklist)
+3. `STATUS.md` - Comprehensive project status
+4. `README.md` - Project overview and setup
 
 ### Core Python Files
 1. `src/backtest_engine.py` - Main backtesting orchestration (535 lines)
@@ -395,17 +396,19 @@ pip install -r requirements.txt
 ## SESSION CHECKLIST
 
 Before starting work:
-- [ ] Read this file (SESSION_START.md)
-- [ ] Check STATUS.md for latest project state
+- [ ] **Read CLAUDE.md first** (quick reference for current state)
+- [ ] Read this file (SESSION_START.md) for detailed history
+- [ ] Check STATUS.md for comprehensive project state
 - [ ] Run `git status` to see what's modified
 - [ ] Run `git log -3` to see recent commits
 - [ ] Run tests to verify system health: `python -m pytest tests/ -v`
 
 Before ending session:
+- [ ] Update CLAUDE.md if project state changed (current status, priorities, metrics)
 - [ ] Update STATUS.md if significant changes made
 - [ ] Update this file (SESSION_START.md) if project state changed
 - [ ] Commit changes with descriptive message
-- [ ] Update "Last Updated" date in this file
+- [ ] Update "Last Updated" dates in modified files
 
 ---
 
@@ -443,7 +446,7 @@ Before ending session:
 
 ---
 
-**Remember:** Always read STATUS.md and this file when starting a new session to get up to speed quickly!
+**Remember:** Always read CLAUDE.md first, then this file when starting a new session to get up to speed quickly!
 
 **Project Status:** ✅ PHASE 5 COMPLETE - SYSTEM OPERATIONAL
 **Build Date:** November 21, 2025

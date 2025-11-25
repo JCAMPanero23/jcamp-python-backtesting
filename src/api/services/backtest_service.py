@@ -305,6 +305,14 @@ class BacktestService:
             # Get OHLC dataframe from engine
             df = engine.df.copy()
 
+            # DEBUG: Print last 20 bars to see if EMAs exist
+            print(f"\n[DEBUG] Dataframe shape: {df.shape}")
+            print(f"[DEBUG] Last 5 bars EMA status:")
+            for i in range(-5, 0):
+                idx = df.index[i]
+                row = df.iloc[i]
+                print(f"  Bar {i}: {idx} | EMA20={row.get('ema_fast', 'MISSING')} | EMA50={row.get('ema_mid', 'MISSING')} | EMA100={row.get('ema_slow', 'MISSING')}")
+
             # Prepare candlestick data
             candles = []
             for idx, row in df.iterrows():

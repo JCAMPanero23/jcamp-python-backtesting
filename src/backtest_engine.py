@@ -183,26 +183,56 @@ class BacktestEngine:
     ) -> Dict:
         """
         Run backtest on historical data.
-        
+
         Args:
             symbol: Trading pair
             year: Year to test
             start_date: Optional start date (YYYY-MM-DD)
             end_date: Optional end date (YYYY-MM-DD)
-            
+
         Returns:
             Dictionary with backtest results
         """
         print("\n" + "="*70)
         print(f"  JCAMP BACKTEST ENGINE - {symbol} {year}")
         print("="*70)
-        
-        # Prepare data
-        df = self.prepare_data(symbol, year)
 
-        # Filter date range if specified
+        # Prepare data
+        df_full = self.prepare_data(symbol, year)
+
+        # Define warmup period (500 M15 bars = ~5.2 days for H1 EMA100 calculation)
+        WARMUP_BARS = 500
+
+        # Calculate warmup start date
         if start_date:
-            df = df[df.index >= pd.Timestamp(start_date)]
+            start_timestamp = pd.Timestamp(start_date)
+
+            # Find the index of start_date in the full dataset
+            start_idx = df_full.index.get_indexer([start_timestamp], method='bfill')[0]
+
+            # Calculate warmup start index (ensure we don't go negative)
+            warmup_start_idx = max(0, start_idx - WARMUP_BARS)
+
+            # Check if we have enough warmup data
+            actual_warmup_bars = start_idx - warmup_start_idx
+            if actual_warmup_bars < WARMUP_BARS:
+                print(f"\n[WARN] Insufficient warmup data!")
+                print(f"[WARN] Need {WARMUP_BARS} M15 bars (~{WARMUP_BARS/96:.1f} days) for H1 EMA100")
+                print(f"[WARN] Only have {actual_warmup_bars} bars (~{actual_warmup_bars/96:.1f} days)")
+                print(f"[WARN] H1 EMAs may be inaccurate at the start of the backtest\n")
+            else:
+                print(f"\n[OK] Warmup data: {actual_warmup_bars} M15 bars (~{actual_warmup_bars/96:.1f} days)")
+
+            # Include warmup bars before start_date for proper EMA calculation
+            df = df_full.iloc[warmup_start_idx:]
+
+            # Track the actual backtest start index (where we start trading)
+            self.backtest_start_idx = start_idx - warmup_start_idx
+        else:
+            df = df_full
+            self.backtest_start_idx = WARMUP_BARS
+
+        # Filter end date if specified
         if end_date:
             # Include the entire end date (through 23:59:59)
             end_timestamp = pd.Timestamp(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
@@ -212,18 +242,18 @@ class BacktestEngine:
         self.df = df
         self.indicators = self.indicators_calc
 
-        print(f"\n[TEST] Testing period: {df.index[0]} to {df.index[-1]}")
-        print(f"[INFO] OHLC data prepared: {len(df):,} candles")
+        print(f"\n[DATA] Full dataset: {df.index[0]} to {df.index[-1]} ({len(df):,} bars)")
+        print(f"[TEST] Backtest period: {df.index[self.backtest_start_idx]} to {df.index[-1]}")
         print(f"[BAL] Initial balance: ${self.initial_balance:,.2f}")
         print(f"[RISK] Risk per trade: {self.risk_percent}%")
         print(f"[POS] Max positions: {self.max_positions}")
-        
+
         print("\n" + "-"*70)
         print("Starting backtest simulation...")
         print("-"*70 + "\n")
-        
-        # Main backtest loop
-        for idx in range(100, len(df)):  # Start at bar 100 to have indicator history
+
+        # Main backtest loop - start at backtest_start_idx to have warmup history
+        for idx in range(self.backtest_start_idx, len(df)):
             self.current_bar_index = idx
             current_time = df.index[idx]
             current_price = df.iloc[idx]['close']

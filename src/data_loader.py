@@ -115,7 +115,41 @@ class DataLoader:
         print(f"  Price range: {df['low'].min():.5f} - {df['high'].max():.5f}")
         
         return df
-    
+
+    def load_pair_data_multi_year(self, pair: str, years: List[int]) -> pd.DataFrame:
+        """
+        Load M1 data for a currency pair across multiple years
+
+        Args:
+            pair: Currency pair (e.g., 'EURUSD')
+            years: List of years to load (e.g., [2023, 2024])
+
+        Returns:
+            DataFrame with OHLC data from all years concatenated
+        """
+        dfs = []
+
+        for year in sorted(years):
+            try:
+                df_year = self.load_pair_data(pair, year)
+                dfs.append(df_year)
+                print(f"[OK] Loaded {year} data: {len(df_year):,} bars")
+            except FileNotFoundError:
+                print(f"[WARN] Data file for {year} not found, skipping")
+                continue
+
+        if not dfs:
+            raise FileNotFoundError(f"No data files found for {pair} in years {years}")
+
+        # Concatenate all years
+        df_combined = pd.concat(dfs, axis=0)
+        df_combined.sort_index(inplace=True)
+
+        print(f"[OK] Combined {len(years)} years: {len(df_combined):,} total bars")
+        print(f"  Date range: {df_combined.index[0]} to {df_combined.index[-1]}")
+
+        return df_combined
+
     def resample_to_timeframe(self, df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
         """
         Resample M1 data to higher timeframe (H1, M15, etc.)

@@ -102,22 +102,42 @@ class BacktestEngine:
             'rsi_overbought': 70.0,
         }
     
-    def prepare_data(self, symbol: str, year: str) -> pd.DataFrame:
+    def prepare_data(self, symbol: str, year: str, start_date: Optional[str] = None, warmup_bars: int = 500) -> pd.DataFrame:
         """
-        Load and prepare data with all indicators.
-        
+        Load and prepare data with all indicators (with automatic multi-year loading for warmup).
+
         Args:
             symbol: Trading pair (e.g., 'EURUSD')
-            year: Year string (e.g., '2024')
-            
+            year: Primary year string (e.g., '2024')
+            start_date: Optional start date (YYYY-MM-DD) - if provided, will load previous year if needed for warmup
+            warmup_bars: Number of bars needed for warmup (default 500 for M15 timeframe)
+
         Returns:
             DataFrame with OHLC + indicators + CSM
         """
         if self.verbose:
             print(f"\n[DATA] Preparing data for {symbol} {year}...")
-        
-        # Load M1 data
-        df_m1 = self.loader.load_pair_data(symbol, year)
+
+        # Determine which years to load
+        years_to_load = [int(year)]
+
+        if start_date:
+            start_year = int(start_date[:4])
+            start_month = int(start_date[5:7])
+            start_day = int(start_date[8:10])
+
+            # If starting in January (especially first 10 days), we likely need previous year for warmup
+            # 500 M15 bars = ~5.2 days, so if start_date is within first 10 days, load previous year
+            if start_month == 1 and start_day <= 10:
+                if start_year - 1 not in years_to_load:
+                    years_to_load.insert(0, start_year - 1)
+                    print(f"[INFO] Start date {start_date} requires previous year ({start_year - 1}) for warmup")
+
+        # Load M1 data (single or multi-year)
+        if len(years_to_load) > 1:
+            df_m1 = self.loader.load_pair_data_multi_year(symbol, years_to_load)
+        else:
+            df_m1 = self.loader.load_pair_data(symbol, year)
 
         # Resample to specified timeframe
         df = self.loader.resample_to_timeframe(df_m1, self.timeframe)
@@ -148,7 +168,7 @@ class BacktestEngine:
         df['csm_diff'] = 0.0
 
         if self.verbose:
-            print("💪 Calculating Currency Strength Meter...")
+            print("[CSM] Calculating Currency Strength Meter...")
 
         # Calculate CSM for each bar
         pair_data = {symbol: df}
@@ -197,8 +217,8 @@ class BacktestEngine:
         print(f"  JCAMP BACKTEST ENGINE - {symbol} {year}")
         print("="*70)
 
-        # Prepare data
-        df_full = self.prepare_data(symbol, year)
+        # Prepare data (with automatic multi-year loading if warmup requires it)
+        df_full = self.prepare_data(symbol, year, start_date=start_date)
 
         # Define warmup period (500 M15 bars = ~5.2 days for H1 EMA100 calculation)
         WARMUP_BARS = 500

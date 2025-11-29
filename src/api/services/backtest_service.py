@@ -305,12 +305,61 @@ class BacktestService:
             # Get OHLC dataframe from engine
             df_full = engine.df.copy()
 
-            # CRITICAL FIX: Skip warmup bars - only send data from backtest start onwards
-            # This prevents C# from displaying incomplete EMAs during warmup period
+            # CRITICAL FIX: Calculate H1 EMAs on FULL dataset (with warmup) for accurate values
+            # Then skip warmup bars before sending to C#
             backtest_start_idx = getattr(engine, 'backtest_start_idx', 0)
-            df = df_full.iloc[backtest_start_idx:].copy()
 
             print(f"\n[OHLC DATA] Full dataset: {len(df_full)} bars (includes warmup)")
+            print(f"[OHLC DATA] Calculating H1 EMAs on full dataset for accuracy...")
+
+            # Aggregate to H1 for H1 EMA calculation
+            df_h1 = df_full.resample('1H').agg({
+                'open': 'first',
+                'high': 'max',
+                'low': 'min',
+                'close': 'last'
+            }).dropna()
+
+            # Calculate H1 EMAs using TA-Lib or simple EMA
+            def calculate_ema_simple(data, period):
+                """Simple EMA calculation"""
+                if len(data) < period:
+                    return pd.Series([None] * len(data), index=data.index)
+
+                multiplier = 2.0 / (period + 1)
+                ema = data.copy()
+
+                # Initial SMA
+                ema.iloc[:period-1] = None
+                ema.iloc[period-1] = data.iloc[:period].mean()
+
+                # Calculate EMA
+                for i in range(period, len(data)):
+                    ema.iloc[i] = (data.iloc[i] - ema.iloc[i-1]) * multiplier + ema.iloc[i-1]
+
+                return ema
+
+            df_h1['ema_20'] = calculate_ema_simple(df_h1['close'], 20)
+            df_h1['ema_50'] = calculate_ema_simple(df_h1['close'], 50)
+            df_h1['ema_100'] = calculate_ema_simple(df_h1['close'], 100)
+
+            # Map H1 EMAs back to M15 bars using forward fill (each M15 bar gets the H1 EMA for its hour)
+            df_full['ema_20_h1'] = None
+            df_full['ema_50_h1'] = None
+            df_full['ema_100_h1'] = None
+
+            for idx, row in df_full.iterrows():
+                # Round down to hour boundary
+                h1_timestamp = idx.floor('1H')
+                if h1_timestamp in df_h1.index:
+                    df_full.loc[idx, 'ema_20_h1'] = df_h1.loc[h1_timestamp, 'ema_20']
+                    df_full.loc[idx, 'ema_50_h1'] = df_h1.loc[h1_timestamp, 'ema_50']
+                    df_full.loc[idx, 'ema_100_h1'] = df_h1.loc[h1_timestamp, 'ema_100']
+
+            print(f"[OK] H1 EMAs calculated on {len(df_h1)} H1 bars")
+
+            # Now filter to backtest period (skip warmup)
+            df = df_full.iloc[backtest_start_idx:].copy()
             print(f"[OHLC DATA] Sending to C#: {len(df)} bars (warmup skipped, start from bar {backtest_start_idx})")
 
             # DEBUG: Print last 5 bars to see if EMAs exist
@@ -318,7 +367,7 @@ class BacktestService:
             for i in range(-5, 0):
                 idx = df.index[i]
                 row = df.iloc[i]
-                print(f"  Bar {i}: {idx} | EMA20={row.get('ema_fast', 'MISSING')} | EMA50={row.get('ema_mid', 'MISSING')} | EMA100={row.get('ema_slow', 'MISSING')}")
+                print(f"  Bar {i}: {idx} | M15_EMA20={row.get('ema_fast', 'MISSING')} | H1_EMA100={row.get('ema_100_h1', 'MISSING')}")
 
             # Prepare candlestick data
             candles = []
@@ -329,9 +378,15 @@ class BacktestService:
                     "high": float(row['high']),
                     "low": float(row['low']),
                     "close": float(row['close']),
+                    # M15 EMAs
                     "ema_fast": float(row.get('ema_fast', 0)) if not pd.isna(row.get('ema_fast', 0)) else None,
                     "ema_mid": float(row.get('ema_mid', 0)) if not pd.isna(row.get('ema_mid', 0)) else None,
                     "ema_slow": float(row.get('ema_slow', 0)) if not pd.isna(row.get('ema_slow', 0)) else None,
+                    # H1 EMAs (pre-calculated with warmup)
+                    "ema_20_h1": float(row.get('ema_20_h1', 0)) if not pd.isna(row.get('ema_20_h1', 0)) else None,
+                    "ema_50_h1": float(row.get('ema_50_h1', 0)) if not pd.isna(row.get('ema_50_h1', 0)) else None,
+                    "ema_100_h1": float(row.get('ema_100_h1', 0)) if not pd.isna(row.get('ema_100_h1', 0)) else None,
+                    # Other indicators
                     "rsi": float(row.get('rsi', 50)) if not pd.isna(row.get('rsi', 50)) else 50.0,
                     "adx": float(row.get('adx', 0)) if not pd.isna(row.get('adx', 0)) else None
                 }

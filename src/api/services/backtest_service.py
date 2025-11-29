@@ -353,22 +353,28 @@ class BacktestService:
             h1_timestamps = sorted(df_h1.index.tolist())
 
             for i, (idx, row) in enumerate(df_full.iterrows()):
-                # Find the H1 bar that COMPLETED before or at this M15 bar
-                current_hour = idx.floor('1H')
+                # Find H1 bars that have COMPLETED before this M15 bar
+                # CRITICAL: H1 bar at time T completes at T + 1 hour
+                # For M15 at 11:45, only H1 bars that completed by 11:45 should be used
+                # H1 at 10:00 completes at 11:00 ✓ (use this)
+                # H1 at 11:00 completes at 12:00 ✗ (DON'T use - not complete yet!)
 
-                # Find the index of the COMPLETED H1 bar (previous hour)
-                # A H1 bar at 14:00 completes at 15:00, so for M15 at 14:45, we use H1 from 13:00
                 completed_h1_idx = None
                 next_h1_idx = None
 
                 for j, h1_ts in enumerate(h1_timestamps):
-                    if h1_ts <= current_hour:
+                    # Check if this H1 bar has COMPLETED (end time <= current M15 time)
+                    h1_end_time = h1_ts + pd.Timedelta(hours=1)
+
+                    if h1_end_time <= idx:
+                        # This H1 bar has completed
                         completed_h1_idx = j
-                    if h1_ts > current_hour:
+                    else:
+                        # This H1 bar hasn't completed yet
                         next_h1_idx = j
                         break
 
-                if completed_h1_idx is not None and completed_h1_idx > 0:
+                if completed_h1_idx is not None and completed_h1_idx >= 1:
                     # Use the previous H1 bar (the one that's complete)
                     prev_h1_ts = h1_timestamps[completed_h1_idx - 1] if completed_h1_idx > 0 else h1_timestamps[0]
                     curr_h1_ts = h1_timestamps[completed_h1_idx]

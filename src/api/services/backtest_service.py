@@ -343,20 +343,62 @@ class BacktestService:
             df_h1['ema_50'] = calculate_ema_simple(df_h1['close'], 50)
             df_h1['ema_100'] = calculate_ema_simple(df_h1['close'], 100)
 
-            # Map H1 EMAs back to M15 bars using forward fill (each M15 bar gets the H1 EMA for its hour)
+            # Map H1 EMAs back to M15 bars with LINEAR INTERPOLATION for smoothness
+            # Use PREVIOUS hour's H1 EMA to avoid lookahead bias
             df_full['ema_20_h1'] = None
             df_full['ema_50_h1'] = None
             df_full['ema_100_h1'] = None
 
-            for idx, row in df_full.iterrows():
-                # Round down to hour boundary
-                h1_timestamp = idx.floor('1H')
-                if h1_timestamp in df_h1.index:
-                    df_full.loc[idx, 'ema_20_h1'] = df_h1.loc[h1_timestamp, 'ema_20']
-                    df_full.loc[idx, 'ema_50_h1'] = df_h1.loc[h1_timestamp, 'ema_50']
-                    df_full.loc[idx, 'ema_100_h1'] = df_h1.loc[h1_timestamp, 'ema_100']
+            # Create a list of H1 timestamps for faster lookup
+            h1_timestamps = sorted(df_h1.index.tolist())
 
-            print(f"[OK] H1 EMAs calculated on {len(df_h1)} H1 bars")
+            for i, (idx, row) in enumerate(df_full.iterrows()):
+                # Find the H1 bar that COMPLETED before or at this M15 bar
+                current_hour = idx.floor('1H')
+
+                # Find the index of the COMPLETED H1 bar (previous hour)
+                # A H1 bar at 14:00 completes at 15:00, so for M15 at 14:45, we use H1 from 13:00
+                completed_h1_idx = None
+                next_h1_idx = None
+
+                for j, h1_ts in enumerate(h1_timestamps):
+                    if h1_ts <= current_hour:
+                        completed_h1_idx = j
+                    if h1_ts > current_hour:
+                        next_h1_idx = j
+                        break
+
+                if completed_h1_idx is not None and completed_h1_idx > 0:
+                    # Use the previous H1 bar (the one that's complete)
+                    prev_h1_ts = h1_timestamps[completed_h1_idx - 1] if completed_h1_idx > 0 else h1_timestamps[0]
+                    curr_h1_ts = h1_timestamps[completed_h1_idx]
+
+                    # Get EMA values for interpolation
+                    prev_ema20 = df_h1.loc[prev_h1_ts, 'ema_20']
+                    prev_ema50 = df_h1.loc[prev_h1_ts, 'ema_50']
+                    prev_ema100 = df_h1.loc[prev_h1_ts, 'ema_100']
+
+                    curr_ema20 = df_h1.loc[curr_h1_ts, 'ema_20']
+                    curr_ema50 = df_h1.loc[curr_h1_ts, 'ema_50']
+                    curr_ema100 = df_h1.loc[curr_h1_ts, 'ema_100']
+
+                    # Calculate interpolation factor based on time within the hour
+                    # M15 at 14:00 → factor = 0.0 (use previous H1)
+                    # M15 at 14:15 → factor = 0.25
+                    # M15 at 14:30 → factor = 0.50
+                    # M15 at 14:45 → factor = 0.75
+                    minutes_into_hour = idx.minute
+                    factor = minutes_into_hour / 60.0
+
+                    # Linear interpolation for smooth H1 EMAs
+                    if not pd.isna(prev_ema20) and not pd.isna(curr_ema20):
+                        df_full.loc[idx, 'ema_20_h1'] = prev_ema20 + (curr_ema20 - prev_ema20) * factor
+                    if not pd.isna(prev_ema50) and not pd.isna(curr_ema50):
+                        df_full.loc[idx, 'ema_50_h1'] = prev_ema50 + (curr_ema50 - prev_ema50) * factor
+                    if not pd.isna(prev_ema100) and not pd.isna(curr_ema100):
+                        df_full.loc[idx, 'ema_100_h1'] = prev_ema100 + (curr_ema100 - prev_ema100) * factor
+
+            print(f"[OK] H1 EMAs calculated on {len(df_h1)} H1 bars and interpolated to M15")
 
             # Now filter to backtest period (skip warmup)
             df = df_full.iloc[backtest_start_idx:].copy()

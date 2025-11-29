@@ -303,10 +303,17 @@ class BacktestService:
             import pandas as pd
 
             # Get OHLC dataframe from engine
-            df = engine.df.copy()
+            df_full = engine.df.copy()
 
-            # DEBUG: Print last 20 bars to see if EMAs exist
-            print(f"\n[DEBUG] Dataframe shape: {df.shape}")
+            # CRITICAL FIX: Skip warmup bars - only send data from backtest start onwards
+            # This prevents C# from displaying incomplete EMAs during warmup period
+            backtest_start_idx = getattr(engine, 'backtest_start_idx', 0)
+            df = df_full.iloc[backtest_start_idx:].copy()
+
+            print(f"\n[OHLC DATA] Full dataset: {len(df_full)} bars (includes warmup)")
+            print(f"[OHLC DATA] Sending to C#: {len(df)} bars (warmup skipped, start from bar {backtest_start_idx})")
+
+            # DEBUG: Print last 5 bars to see if EMAs exist
             print(f"[DEBUG] Last 5 bars EMA status:")
             for i in range(-5, 0):
                 idx = df.index[i]

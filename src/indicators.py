@@ -437,5 +437,5 @@ if __name__ == "__main__":
             print(f"{key}: {value:.4f}")
     
     print("\n" + "═"*80)
-    print("✓ All indicator tests completed successfully!")
+    print("[OK] All indicator tests completed successfully!")
     print("═"*80 + "\n")

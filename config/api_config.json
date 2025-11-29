@@ -1,19 +1,31 @@
 {
   "server": {
-    "host": "localhost",
+    "host": "0.0.0.0",
     "port": 8000,
-    "workers": 4,
-    "reload": false
+    "reload": true,
+    "log_level": "info"
   },
-  
   "cors": {
-    "allow_origins": ["http://localhost:*"],
-    "allow_methods": ["GET", "POST"],
+    "allow_origins": [
+      "http://localhost:*",
+      "http://127.0.0.1:*"
+    ],
+    "allow_credentials": true,
+    "allow_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     "allow_headers": ["*"]
   },
-  
-  "logging": {
-    "level": "INFO",
-    "file": "logs/api_server.log"
+  "task_management": {
+    "max_tasks": 100,
+    "task_retention_hours": 24,
+    "cleanup_interval_minutes": 60
+  },
+  "performance": {
+    "request_timeout_seconds": 300,
+    "max_backtest_duration_minutes": 30
+  },
+  "features": {
+    "backtesting": true,
+    "optimization": false,
+    "real_time_signals": false
   }
 }

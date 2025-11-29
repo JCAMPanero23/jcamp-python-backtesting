@@ -22,6 +22,7 @@ from src.indicators import TechnicalIndicators
 from src.regime_detector import RegimeDetector
 from src.strategies.trend_rider import TrendRiderStrategy
 from src.strategies.range_rider import RangeRiderStrategy
+from src.strategies.simple_test import SimpleTestStrategy
 from src.position_manager import PositionManager, Position, ExitReason, PositionSide
 from src.performance_tracker import PerformanceTracker
 
@@ -35,19 +36,22 @@ class BacktestEngine:
         self,
         initial_balance: float = 10000.0,
         risk_percent: float = 2.0,
-        max_positions: int = 2
+        max_positions: int = 2,
+        timeframe: str = 'M15'
     ):
         """
         Initialize backtest engine.
-        
+
         Args:
             initial_balance: Starting balance
             risk_percent: Risk per trade as percentage
             max_positions: Max concurrent positions
+            timeframe: Chart timeframe (M15, H1, H4, etc.)
         """
         self.initial_balance = initial_balance
         self.risk_percent = risk_percent
         self.max_positions = max_positions
+        self.timeframe = timeframe
         
         # Initialize components
         self.position_manager = PositionManager(max_positions)
@@ -61,6 +65,7 @@ class BacktestEngine:
         
         # Strategy components
         config = self._get_config()
+        self.simple_test = SimpleTestStrategy(config)
         self.trend_rider = TrendRiderStrategy(config)
         self.range_rider = RangeRiderStrategy(config)
         
@@ -97,77 +102,97 @@ class BacktestEngine:
             'rsi_overbought': 70.0,
         }
     
-    def prepare_data(self, symbol: str, year: str) -> pd.DataFrame:
+    def prepare_data(self, symbol: str, year: str, start_date: Optional[str] = None, warmup_bars: int = 500) -> pd.DataFrame:
         """
-        Load and prepare data with all indicators.
-        
+        Load and prepare data with all indicators (with automatic multi-year loading for warmup).
+
         Args:
             symbol: Trading pair (e.g., 'EURUSD')
-            year: Year string (e.g., '2024')
-            
+            year: Primary year string (e.g., '2024')
+            start_date: Optional start date (YYYY-MM-DD) - if provided, will load previous year if needed for warmup
+            warmup_bars: Number of bars needed for warmup (default 500 for M15 timeframe)
+
         Returns:
             DataFrame with OHLC + indicators + CSM
         """
         if self.verbose:
-            print(f"\n📊 Preparing data for {symbol} {year}...")
-        
-        # Load M1 data
-        df_m1 = self.loader.load_pair_data(symbol, year)
-        
-        # Resample to H1
-        df_h1 = self.loader.resample_to_timeframe(df_m1, 'H1')
-        
+            print(f"\n[DATA] Preparing data for {symbol} {year}...")
+
+        # Determine which years to load
+        years_to_load = [int(year)]
+
+        if start_date:
+            start_year = int(start_date[:4])
+            start_month = int(start_date[5:7])
+            start_day = int(start_date[8:10])
+
+            # If starting in January (especially first 10 days), we likely need previous year for warmup
+            # 500 M15 bars = ~5.2 days, so if start_date is within first 10 days, load previous year
+            if start_month == 1 and start_day <= 10:
+                if start_year - 1 not in years_to_load:
+                    years_to_load.insert(0, start_year - 1)
+                    print(f"[INFO] Start date {start_date} requires previous year ({start_year - 1}) for warmup")
+
+        # Load M1 data (single or multi-year)
+        if len(years_to_load) > 1:
+            df_m1 = self.loader.load_pair_data_multi_year(symbol, years_to_load)
+        else:
+            df_m1 = self.loader.load_pair_data(symbol, year)
+
+        # Resample to specified timeframe
+        df = self.loader.resample_to_timeframe(df_m1, self.timeframe)
+
         if self.verbose:
-            print(f"✓ Loaded {len(df_h1):,} H1 bars")
+            print(f"[OK] Loaded {len(df):,} {self.timeframe} bars")
         
         # Add technical indicators
         if self.verbose:
-            print("📈 Calculating technical indicators...")
-        
-        df_h1['atr'] = self.indicators_calc.calculate_atr(df_h1, 14)
-        df_h1['ema_fast'] = self.indicators_calc.calculate_ema(df_h1, 20)
-        df_h1['ema_mid'] = self.indicators_calc.calculate_ema(df_h1, 35)
-        df_h1['ema_slow'] = self.indicators_calc.calculate_ema(df_h1, 50)
-        
-        adx_series, plus_di_series, minus_di_series = self.indicators_calc.calculate_adx(df_h1, 14)
-        df_h1['adx'] = adx_series
-        df_h1['plus_di'] = plus_di_series
-        df_h1['minus_di'] = minus_di_series
-        
+            print("[TREND] Calculating technical indicators...")
+
+        df['atr'] = self.indicators_calc.calculate_atr(df, 14)
+        df['ema_fast'] = self.indicators_calc.calculate_ema(df, 20)
+        df['ema_mid'] = self.indicators_calc.calculate_ema(df, 50)
+        df['ema_slow'] = self.indicators_calc.calculate_ema(df, 100)
+
+        adx_series, plus_di_series, minus_di_series = self.indicators_calc.calculate_adx(df, 14)
+        df['adx'] = adx_series
+        df['plus_di'] = plus_di_series
+        df['minus_di'] = minus_di_series
+
         # Add RSI for Range Rider
-        df_h1['rsi'] = 50.0  # Simplified for now
-        
+        df['rsi'] = 50.0  # Simplified for now
+
         # Add CSM columns
-        df_h1['csm_base'] = 50.0
-        df_h1['csm_quote'] = 50.0
-        df_h1['csm_diff'] = 0.0
-        
+        df['csm_base'] = 50.0
+        df['csm_quote'] = 50.0
+        df['csm_diff'] = 0.0
+
         if self.verbose:
-            print("💪 Calculating Currency Strength Meter...")
-        
+            print("[CSM] Calculating Currency Strength Meter...")
+
         # Calculate CSM for each bar
-        pair_data = {symbol: df_h1}
+        pair_data = {symbol: df}
         base, quote = symbol[:3], symbol[3:6]
-        
-        for idx in range(len(df_h1)):
-            current_time = df_h1.index[idx]
-            
+
+        for idx in range(len(df)):
+            current_time = df.index[idx]
+
             # Update CSM
-            success = self.csm_calc.update_csm(pair_data, current_time.to_pydatetime(), 'H1')
-            
+            success = self.csm_calc.update_csm(pair_data, current_time.to_pydatetime(), self.timeframe)
+
             if success:
                 base_strength = self.csm_calc.get_currency_strength(base)
                 quote_strength = self.csm_calc.get_currency_strength(quote)
                 diff = base_strength - quote_strength
-                
-                df_h1.loc[current_time, 'csm_base'] = base_strength
-                df_h1.loc[current_time, 'csm_quote'] = quote_strength
-                df_h1.loc[current_time, 'csm_diff'] = diff
-        
+
+                df.loc[current_time, 'csm_base'] = base_strength
+                df.loc[current_time, 'csm_quote'] = quote_strength
+                df.loc[current_time, 'csm_diff'] = diff
+
         if self.verbose:
-            print("✓ Data preparation complete!\n")
-        
-        return df_h1
+            print("[OK] Data preparation complete!\n")
+
+        return df
     
     def run_backtest(
         self,
@@ -178,41 +203,77 @@ class BacktestEngine:
     ) -> Dict:
         """
         Run backtest on historical data.
-        
+
         Args:
             symbol: Trading pair
             year: Year to test
             start_date: Optional start date (YYYY-MM-DD)
             end_date: Optional end date (YYYY-MM-DD)
-            
+
         Returns:
             Dictionary with backtest results
         """
         print("\n" + "="*70)
         print(f"  JCAMP BACKTEST ENGINE - {symbol} {year}")
         print("="*70)
-        
-        # Prepare data
-        df = self.prepare_data(symbol, year)
-        
-        # Filter date range if specified
+
+        # Prepare data (with automatic multi-year loading if warmup requires it)
+        df_full = self.prepare_data(symbol, year, start_date=start_date)
+
+        # Define warmup period (500 M15 bars = ~5.2 days for H1 EMA100 calculation)
+        WARMUP_BARS = 500
+
+        # Calculate warmup start date
         if start_date:
-            df = df[df.index >= pd.Timestamp(start_date)]
+            start_timestamp = pd.Timestamp(start_date)
+
+            # Find the index of start_date in the full dataset
+            start_idx = df_full.index.get_indexer([start_timestamp], method='bfill')[0]
+
+            # Calculate warmup start index (ensure we don't go negative)
+            warmup_start_idx = max(0, start_idx - WARMUP_BARS)
+
+            # Check if we have enough warmup data
+            actual_warmup_bars = start_idx - warmup_start_idx
+            if actual_warmup_bars < WARMUP_BARS:
+                print(f"\n[WARN] Insufficient warmup data!")
+                print(f"[WARN] Need {WARMUP_BARS} M15 bars (~{WARMUP_BARS/96:.1f} days) for H1 EMA100")
+                print(f"[WARN] Only have {actual_warmup_bars} bars (~{actual_warmup_bars/96:.1f} days)")
+                print(f"[WARN] H1 EMAs may be inaccurate at the start of the backtest\n")
+            else:
+                print(f"\n[OK] Warmup data: {actual_warmup_bars} M15 bars (~{actual_warmup_bars/96:.1f} days)")
+
+            # Include warmup bars before start_date for proper EMA calculation
+            df = df_full.iloc[warmup_start_idx:]
+
+            # Track the actual backtest start index (where we start trading)
+            self.backtest_start_idx = start_idx - warmup_start_idx
+        else:
+            df = df_full
+            self.backtest_start_idx = WARMUP_BARS
+
+        # Filter end date if specified
         if end_date:
-            df = df[df.index <= pd.Timestamp(end_date)]
-        
-        print(f"\n🎯 Testing period: {df.index[0].date()} to {df.index[-1].date()}")
-        print(f"📊 Total bars: {len(df):,}")
-        print(f"💰 Initial balance: ${self.initial_balance:,.2f}")
-        print(f"⚠️  Risk per trade: {self.risk_percent}%")
-        print(f"📈 Max positions: {self.max_positions}")
-        
+            # Include the entire end date (through 23:59:59)
+            end_timestamp = pd.Timestamp(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+            df = df[df.index <= end_timestamp]
+
+        # Store dataframe and indicators for chart generation
+        self.df = df
+        self.indicators = self.indicators_calc
+
+        print(f"\n[DATA] Full dataset: {df.index[0]} to {df.index[-1]} ({len(df):,} bars)")
+        print(f"[TEST] Backtest period: {df.index[self.backtest_start_idx]} to {df.index[-1]}")
+        print(f"[BAL] Initial balance: ${self.initial_balance:,.2f}")
+        print(f"[RISK] Risk per trade: {self.risk_percent}%")
+        print(f"[POS] Max positions: {self.max_positions}")
+
         print("\n" + "-"*70)
         print("Starting backtest simulation...")
         print("-"*70 + "\n")
-        
-        # Main backtest loop
-        for idx in range(100, len(df)):  # Start at bar 100 to have indicator history
+
+        # Main backtest loop - start at backtest_start_idx to have warmup history
+        for idx in range(self.backtest_start_idx, len(df)):
             self.current_bar_index = idx
             current_time = df.index[idx]
             current_price = df.iloc[idx]['close']
@@ -265,28 +326,40 @@ class BacktestEngine:
         else:
             regime = str(regime).split('.')[-1] if '.' in str(regime) else str(regime)
         
-        # Check Trend Rider
-        tr_signal, tr_confidence, tr_details = self.trend_rider.generate_signal(
+        # Check Simple Test Strategy (for chart testing)
+        st_signal, st_confidence, st_details = self.simple_test.generate_signal(
             df, idx, csm_data, regime
         )
-        
-        if tr_signal != 'NONE':
+
+        if st_signal != 'NONE':
             self._open_position(
-                symbol, tr_signal, current_price, current_time,
-                df, idx, 'TREND_RIDER', tr_confidence, regime
+                symbol, st_signal, current_price, current_time,
+                df, idx, 'SIMPLE_TEST', st_confidence, regime
             )
             return  # One entry per bar
-        
-        # Check Range Rider
-        rr_signal, rr_confidence, rr_details = self.range_rider.generate_signal(
-            df, idx, csm_data, regime
-        )
-        
-        if rr_signal != 'NONE':
-            self._open_position(
-                symbol, rr_signal, current_price, current_time,
-                df, idx, 'RANGE_RIDER', rr_confidence, regime
-            )
+
+        # DISABLED FOR TESTING: Check Trend Rider
+        # tr_signal, tr_confidence, tr_details = self.trend_rider.generate_signal(
+        #     df, idx, csm_data, regime
+        # )
+        #
+        # if tr_signal != 'NONE':
+        #     self._open_position(
+        #         symbol, tr_signal, current_price, current_time,
+        #         df, idx, 'TREND_RIDER', tr_confidence, regime
+        #     )
+        #     return  # One entry per bar
+
+        # DISABLED FOR TESTING: Check Range Rider
+        # rr_signal, rr_confidence, rr_details = self.range_rider.generate_signal(
+        #     df, idx, csm_data, regime
+        # )
+        #
+        # if rr_signal != 'NONE':
+        #     self._open_position(
+        #         symbol, rr_signal, current_price, current_time,
+        #         df, idx, 'RANGE_RIDER', rr_confidence, regime
+        #     )
     
     def _open_position(
         self,
@@ -301,11 +374,16 @@ class BacktestEngine:
         regime: str
     ):
         """Open a new position."""
-        # Calculate stop loss
-        if strategy == 'TREND_RIDER':
-            stop_loss_distance = self.trend_rider.get_stop_loss(df, idx, signal)
+        # Get strategy object
+        if strategy == 'SIMPLE_TEST':
+            strategy_obj = self.simple_test
+        elif strategy == 'TREND_RIDER':
+            strategy_obj = self.trend_rider
         else:  # RANGE_RIDER
-            stop_loss_distance = self.range_rider.get_stop_loss(df, idx, signal)
+            strategy_obj = self.range_rider
+
+        # Calculate stop loss
+        stop_loss_distance = strategy_obj.get_stop_loss(df, idx, signal)
         
         # Calculate stop loss price
         if signal == 'BUY':
@@ -321,6 +399,12 @@ class BacktestEngine:
         
         # Calculate take profit (optional - can be None for trailing only)
         take_profit = None
+        if hasattr(strategy_obj, 'get_take_profit'):
+            tp_distance = strategy_obj.get_take_profit(df, idx, signal)
+            if signal == 'BUY':
+                take_profit = entry_price + tp_distance
+            else:  # SELL
+                take_profit = entry_price - tp_distance
         
         # Open position
         position = self.position_manager.open_position(
@@ -337,7 +421,7 @@ class BacktestEngine:
         )
         
         if self.verbose:
-            print(f"📍 {entry_time.strftime('%Y-%m-%d %H:%M')} | "
+            print(f"[ENTRY] {entry_time.strftime('%Y-%m-%d %H:%M')} | "
                   f"{signal:4s} {strategy:12s} | "
                   f"Price: {entry_price:.5f} | "
                   f"SL: {stop_loss_price:.5f} | "
@@ -416,7 +500,7 @@ class BacktestEngine:
         )
         
         if self.verbose:
-            print(f"🔚 {exit_time.strftime('%Y-%m-%d %H:%M')} | "
+            print(f"[EXIT] {exit_time.strftime('%Y-%m-%d %H:%M')} | "
                   f"CLOSE {position.strategy:12s} | "
                   f"Price: {exit_price:.5f} | "
                   f"R: {position.r_multiple:+.2f} | "
@@ -427,12 +511,20 @@ class BacktestEngine:
         perf_stats = self.performance_tracker.get_comprehensive_stats()
         pos_stats = self.position_manager.get_statistics()
         strategy_breakdown = self.position_manager.get_strategy_breakdown()
-        
+
+        # Convert closed positions to list of dicts for API
+        trades = [pos.to_dict() for pos in self.position_manager.closed_positions]
+
+        # Convert equity DataFrame to list of dicts for API
+        equity_df = self.performance_tracker.get_equity_dataframe()
+        equity_curve = equity_df.reset_index().to_dict('records') if not equity_df.empty else []
+
         return {
             'performance': perf_stats,
             'positions': pos_stats,
             'strategies': strategy_breakdown,
-            'equity_curve': self.performance_tracker.get_equity_dataframe()
+            'trades': trades,  # Individual trade data
+            'equity_curve': equity_curve  # List of dicts instead of DataFrame
         }
     
     def compare_to_mt5_baseline(self):
@@ -468,4 +560,4 @@ if __name__ == "__main__":
     # Compare to MT5
     engine.compare_to_mt5_baseline()
     
-    print("\n✅ Backtest complete!")
+    print("\n[OK] Backtest complete!")

@@ -111,7 +111,7 @@ class CSMCalculator:
                     self.pair_data[pair]['price_change_24h'] = price_change
                 
             except Exception as e:
-                print(f"⚠️  Error processing {pair}: {e}")
+                print(f"[WARN]️  Error processing {pair}: {e}")
                 continue
         
         # Step 2: Distribute strength changes to currencies
@@ -369,7 +369,7 @@ if __name__ == "__main__":
         success = csm.update_csm(pair_data, test_time, 'H1')
         
         if success:
-            print("✓ CSM calculation successful")
+            print("[OK] CSM calculation successful")
             print(csm.get_strength_summary())
             print(csm.diagnose_csm())
             
@@ -384,13 +384,13 @@ if __name__ == "__main__":
                 quote_str = csm.get_currency_strength(quote)
                 print(f"{pair}: {diff:+7.2f} ({base}:{base_str:.2f} - {quote}:{quote_str:.2f})")
             
-            print("\n✓ All tests completed successfully!")
+            print("\n[OK] All tests completed successfully!")
             
         else:
-            print("✗ CSM calculation failed")
+            print("[X] CSM calculation failed")
             
     except Exception as e:
-        print(f"✗ Test failed: {e}")
+        print(f"[X] Test failed: {e}")
         import traceback
         traceback.print_exc()
     

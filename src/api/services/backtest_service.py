@@ -510,14 +510,127 @@ class BacktestService:
             print(f"[M1] Loading M1 data for {symbol} ({year})...")
             m1_df = loader.load_pair_data(symbol, year=year)
 
-            # Filter to backtest date range (include entire end date through 23:59:59)
+            # Filter M1 data to EXACT same timestamp range as M15 data (after warmup)
+            # This ensures M1 and M15 data are perfectly aligned
             import pandas as pd
-            start_date = request["start_date"]
-            end_date = request["end_date"]
-            end_timestamp = pd.Timestamp(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-            m1_df_filtered = m1_df.loc[start_date:end_timestamp]
 
-            print(f"[M1] Filtered M1 data: {len(m1_df_filtered)} bars from {m1_df_filtered.index[0]} to {m1_df_filtered.index[-1]}")
+            # Get the actual M15 dataframe from engine (after warmup skip)
+            backtest_start_idx = getattr(engine, 'backtest_start_idx', 0)
+            m15_df = engine.df.iloc[backtest_start_idx:].copy()
+
+            # Use M15 timestamps to filter M1 data
+            m15_start_time = m15_df.index[0]
+            m15_end_time = m15_df.index[-1]
+
+            print(f"\n{'='*80}")
+            print(f"[M1 DEBUG] M15 DATAFRAME ANALYSIS")
+            print(f"{'='*80}")
+            print(f"[M1 DEBUG] Total M15 bars (after warmup skip): {len(m15_df)}")
+            print(f"[M1 DEBUG] M15 start time: {m15_start_time}")
+            print(f"[M1 DEBUG] M15 end time:   {m15_end_time}")
+            print(f"[M1 DEBUG] First 3 M15 timestamps:")
+            for i in range(min(3, len(m15_df))):
+                print(f"  [{i}] {m15_df.index[i]}")
+            print(f"[M1 DEBUG] Last 3 M15 timestamps:")
+            for i in range(max(0, len(m15_df)-3), len(m15_df)):
+                print(f"  [{i}] {m15_df.index[i]}")
+
+            # Filter M1 to match M15 range EXACTLY (each M15 bar contains 15 M1 bars)
+            # M15 bar at 10:00 contains M1 bars from 10:00 to 10:14
+            # So we need M1 bars from m15_start_time to m15_end_time + 14 minutes
+            m1_end_time = m15_end_time + pd.Timedelta(minutes=14)
+
+            print(f"\n[M1 DEBUG] RAW M1 DATA BEFORE FILTERING")
+            print(f"[M1 DEBUG] Total raw M1 bars loaded: {len(m1_df)}")
+            print(f"[M1 DEBUG] Raw M1 first timestamp: {m1_df.index[0]}")
+            print(f"[M1 DEBUG] Raw M1 last timestamp:  {m1_df.index[-1]}")
+
+            print(f"\n[M1 DEBUG] FILTERING M1 DATA")
+            print(f"[M1 DEBUG] Filter range: {m15_start_time} to {m1_end_time}")
+
+            m1_df_filtered = m1_df.loc[m15_start_time:m1_end_time]
+
+            print(f"\n[M1 DEBUG] FILTERED M1 DATA RESULTS (BEFORE FORWARD-FILL)")
+            print(f"[M1 DEBUG] Filtered M1 bars: {len(m1_df_filtered)}")
+            print(f"[M1 DEBUG] Expected M1 bars: {len(m15_df) * 15} ({len(m15_df)} M15 × 15)")
+            print(f"[M1 DEBUG] Missing M1 bars: {(len(m15_df) * 15) - len(m1_df_filtered)}")
+            print(f"[M1 DEBUG] Filtered M1 first timestamp: {m1_df_filtered.index[0]}")
+            print(f"[M1 DEBUG] Filtered M1 last timestamp:  {m1_df_filtered.index[-1]}")
+
+            # Check if we're missing M1 bars at the end
+            if len(m1_df_filtered) < len(m15_df) * 15:
+                missing_count = (len(m15_df) * 15) - len(m1_df_filtered)
+                missing_m15_equivalent = missing_count / 15
+                print(f"\n[M1 DEBUG] ⚠️  WARNING: Missing {missing_count} M1 bars ({missing_m15_equivalent:.1f} M15 bars equivalent)")
+
+                # Check last 5 M15 bars to see which ones have missing M1 data
+                print(f"[M1 DEBUG] Checking last 5 M15 bars for M1 coverage:")
+                for i in range(max(0, len(m15_df)-5), len(m15_df)):
+                    m15_ts = m15_df.index[i]
+                    m15_end_ts = m15_ts + pd.Timedelta(minutes=14)
+                    m1_in_period = m1_df_filtered.loc[m15_ts:m15_end_ts]
+                    print(f"  M15[{i}] {m15_ts}: {len(m1_in_period)} M1 bars (expected 15)")
+                    if len(m1_in_period) < 15:
+                        # Show which M1 bars are present
+                        expected_times = [m15_ts + pd.Timedelta(minutes=j) for j in range(15)]
+                        actual_times = m1_in_period.index.tolist()
+                        missing_times = [t for t in expected_times if t not in actual_times]
+                        if missing_times:
+                            print(f"    MISSING M1 timestamps: {[str(t) for t in missing_times]}")
+
+                # Check if the raw M1 file has data beyond m1_end_time
+                m1_beyond_filter = m1_df.loc[m1_end_time:]
+                print(f"\n[M1 DEBUG] Raw M1 bars AFTER filter end time ({m1_end_time}): {len(m1_beyond_filter)}")
+                if len(m1_beyond_filter) > 0:
+                    print(f"[M1 DEBUG] So the raw CSV HAS more M1 data available")
+                    print(f"[M1 DEBUG] Next 5 M1 timestamps after filter:")
+                    for i, ts in enumerate(m1_beyond_filter.index[:5]):
+                        print(f"    [{i}] {ts}")
+                else:
+                    print(f"[M1 DEBUG] Raw CSV file ENDS at the filter end time - no more data available")
+
+            print(f"{'='*80}\n")
+
+            # FORWARD-FILL missing M1 bars to ensure perfect alignment with EMAs
+            # This is critical for chart visualization - EMAs must align with M1 candlesticks
+            print(f"[M1 DEBUG] APPLYING FORWARD-FILL TO ELIMINATE GAPS")
+
+            # Create complete minute-by-minute index
+            complete_m1_index = pd.date_range(
+                start=m15_start_time,
+                end=m1_end_time,
+                freq='1min'
+            )
+
+            print(f"[M1 DEBUG] Complete index length: {len(complete_m1_index)} bars")
+            print(f"[M1 DEBUG] Original data length: {len(m1_df_filtered)} bars")
+            print(f"[M1 DEBUG] Bars to be filled: {len(complete_m1_index) - len(m1_df_filtered)}")
+
+            # Reindex with forward-fill (missing bars use previous bar's close as OHLC)
+            m1_df_filled = m1_df_filtered.reindex(complete_m1_index)
+
+            # Forward-fill OHLC data (each missing bar copies previous bar's close)
+            m1_df_filled = m1_df_filled.fillna(method='ffill')
+
+            # Verify no NaN values remain
+            if m1_df_filled.isnull().any().any():
+                print(f"[M1 WARN] ⚠️  NaN values remain after forward-fill!")
+                print(f"[M1 WARN] First NaN at index: {m1_df_filled[m1_df_filled.isnull().any(axis=1)].index[0]}")
+            else:
+                print(f"[M1 DEBUG] ✅ Forward-fill complete - no NaN values")
+
+            print(f"[M1 DEBUG] Final M1 bar count: {len(m1_df_filled)}")
+            print(f"[M1 DEBUG] Expected bar count: {len(m15_df) * 15}")
+
+            if len(m1_df_filled) == len(m15_df) * 15:
+                print(f"[M1 DEBUG] ✅ PERFECT ALIGNMENT: {len(m1_df_filled)} bars = {len(m15_df)} M15 × 15")
+            else:
+                print(f"[M1 WARN] ⚠️  Alignment mismatch: {len(m1_df_filled)} ≠ {len(m15_df) * 15}")
+
+            print(f"{'='*80}\n")
+
+            # Use filled dataframe for candlestick generation
+            m1_df_filtered = m1_df_filled
 
             # Prepare candlestick data (simplified - no indicators for M1)
             candles = []
@@ -533,8 +646,8 @@ class BacktestService:
 
             result = {
                 "symbol": symbol,
-                "start_date": start_date,
-                "end_date": end_date,
+                "start_date": str(m15_start_time),
+                "end_date": str(m15_end_time),
                 "timeframe": "M1",
                 "candles": candles,
                 "pip_size": 0.0001,

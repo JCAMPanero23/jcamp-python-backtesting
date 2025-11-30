@@ -1,0 +1,150 @@
+2024-02-01 00:00:00 to 2024-02-29 23:59:00 backtest
+================================================================================
+[M1 DEBUG] M15 DATAFRAME ANALYSIS
+================================================================================
+[M1 DEBUG] Total M15 bars (after warmup skip): 2016
+[M1 DEBUG] M15 start time: 2024-02-01 00:00:00
+[M1 DEBUG] M15 end time:   2024-02-29 23:45:00
+[M1 DEBUG] First 3 M15 timestamps:
+  [0] 2024-02-01 00:00:00
+  [1] 2024-02-01 00:15:00
+  [2] 2024-02-01 00:30:00
+[M1 DEBUG] Last 3 M15 timestamps:
+  [2013] 2024-02-29 23:15:00
+  [2014] 2024-02-29 23:30:00
+  [2015] 2024-02-29 23:45:00
+
+[M1 DEBUG] RAW M1 DATA BEFORE FILTERING
+[M1 DEBUG] Total raw M1 bars loaded: 372292
+[M1 DEBUG] Raw M1 first timestamp: 2024-01-02 00:03:00
+[M1 DEBUG] Raw M1 last timestamp:  2024-12-31 23:58:00
+
+[M1 DEBUG] FILTERING M1 DATA
+[M1 DEBUG] Filter range: 2024-02-01 00:00:00 to 2024-02-29 23:59:00
+
+[M1 DEBUG] FILTERED M1 DATA RESULTS
+[M1 DEBUG] Filtered M1 bars: 30092
+[M1 DEBUG] Expected M1 bars: 30240 (2016 M15 × 15)
+[M1 DEBUG] Missing M1 bars: 148
+[M1 DEBUG] Filtered M1 first timestamp: 2024-02-01 00:03:00
+[M1 DEBUG] Filtered M1 last timestamp:  2024-02-29 23:58:00
+
+[M1 DEBUG] ⚠️  WARNING: Missing 148 M1 bars (9.9 M15 bars equivalent)
+[M1 DEBUG] Checking last 5 M15 bars for M1 coverage:
+  M15[2011] 2024-02-29 22:45:00: 15 M1 bars (expected 15)
+  M15[2012] 2024-02-29 23:00:00: 15 M1 bars (expected 15)
+  M15[2013] 2024-02-29 23:15:00: 15 M1 bars (expected 15)
+  M15[2014] 2024-02-29 23:30:00: 15 M1 bars (expected 15)
+  M15[2015] 2024-02-29 23:45:00: 14 M1 bars (expected 15)
+    MISSING M1 timestamps: ['2024-02-29 23:59:00']
+
+[M1 DEBUG] Raw M1 bars AFTER filter end time (2024-02-29 23:59:00): 310685
+[M1 DEBUG] So the raw CSV HAS more M1 data available
+[M1 DEBUG] Next 5 M1 timestamps after filter:
+    [0] 2024-03-01 00:05:00
+    [1] 2024-03-01 00:06:00
+    [2] 2024-03-01 00:07:00
+    [3] 2024-03-01 00:08:00
+    [4] 2024-03-01 00:09:00
+================================================================================
+
+2024-03-01 00:00:00 to 2024-03-29 23:59:00 backtest
+================================================================================
+[M1 DEBUG] M15 DATAFRAME ANALYSIS
+================================================================================
+[M1 DEBUG] Total M15 bars (after warmup skip): 2016
+[M1 DEBUG] M15 start time: 2024-03-01 00:00:00
+[M1 DEBUG] M15 end time:   2024-03-29 23:45:00
+[M1 DEBUG] First 3 M15 timestamps:
+  [0] 2024-03-01 00:00:00
+  [1] 2024-03-01 00:15:00
+  [2] 2024-03-01 00:30:00
+[M1 DEBUG] Last 3 M15 timestamps:
+  [2013] 2024-03-29 23:15:00
+  [2014] 2024-03-29 23:30:00
+  [2015] 2024-03-29 23:45:00
+
+[M1 DEBUG] RAW M1 DATA BEFORE FILTERING
+[M1 DEBUG] Total raw M1 bars loaded: 372292
+[M1 DEBUG] Raw M1 first timestamp: 2024-01-02 00:03:00
+[M1 DEBUG] Raw M1 last timestamp:  2024-12-31 23:58:00
+
+[M1 DEBUG] FILTERING M1 DATA
+[M1 DEBUG] Filter range: 2024-03-01 00:00:00 to 2024-03-29 23:59:00
+
+[M1 DEBUG] FILTERED M1 DATA RESULTS
+[M1 DEBUG] Filtered M1 bars: 30096
+[M1 DEBUG] Expected M1 bars: 30240 (2016 M15 × 15)
+[M1 DEBUG] Missing M1 bars: 144
+[M1 DEBUG] Filtered M1 first timestamp: 2024-03-01 00:05:00
+[M1 DEBUG] Filtered M1 last timestamp:  2024-03-29 23:58:00
+
+[M1 DEBUG] ⚠️  WARNING: Missing 144 M1 bars (9.6 M15 bars equivalent)
+[M1 DEBUG] Checking last 5 M15 bars for M1 coverage:
+  M15[2011] 2024-03-29 22:45:00: 15 M1 bars (expected 15)
+  M15[2012] 2024-03-29 23:00:00: 15 M1 bars (expected 15)
+  M15[2013] 2024-03-29 23:15:00: 15 M1 bars (expected 15)
+  M15[2014] 2024-03-29 23:30:00: 15 M1 bars (expected 15)
+  M15[2015] 2024-03-29 23:45:00: 14 M1 bars (expected 15)
+    MISSING M1 timestamps: ['2024-03-29 23:59:00']
+
+[M1 DEBUG] Raw M1 bars AFTER filter end time (2024-03-29 23:59:00): 280589
+[M1 DEBUG] So the raw CSV HAS more M1 data available
+[M1 DEBUG] Next 5 M1 timestamps after filter:
+    [0] 2024-04-01 00:05:00
+    [1] 2024-04-01 00:06:00
+    [2] 2024-04-01 00:07:00
+    [3] 2024-04-01 00:08:00
+    [4] 2024-04-01 00:10:00
+================================================================================
+
+2024-03-04 00:00:00 to 2024-03-08 23:59:00 backtest
+================================================================================
+[M1 DEBUG] M15 DATAFRAME ANALYSIS
+================================================================================
+[M1 DEBUG] Total M15 bars (after warmup skip): 480
+[M1 DEBUG] M15 start time: 2024-03-04 00:00:00
+[M1 DEBUG] M15 end time:   2024-03-08 23:45:00
+[M1 DEBUG] First 3 M15 timestamps:
+  [0] 2024-03-04 00:00:00
+  [1] 2024-03-04 00:15:00
+  [2] 2024-03-04 00:30:00
+[M1 DEBUG] Last 3 M15 timestamps:
+  [477] 2024-03-08 23:15:00
+  [478] 2024-03-08 23:30:00
+  [479] 2024-03-08 23:45:00
+
+[M1 DEBUG] RAW M1 DATA BEFORE FILTERING
+[M1 DEBUG] Total raw M1 bars loaded: 372292
+[M1 DEBUG] Raw M1 first timestamp: 2024-01-02 00:03:00
+[M1 DEBUG] Raw M1 last timestamp:  2024-12-31 23:58:00
+
+[M1 DEBUG] FILTERING M1 DATA
+[M1 DEBUG] Filter range: 2024-03-04 00:00:00 to 2024-03-08 23:59:00
+
+[M1 DEBUG] FILTERED M1 DATA RESULTS
+[M1 DEBUG] Filtered M1 bars: 7170
+[M1 DEBUG] Expected M1 bars: 7200 (480 M15 × 15)
+[M1 DEBUG] Missing M1 bars: 30
+[M1 DEBUG] Filtered M1 first timestamp: 2024-03-04 00:05:00
+[M1 DEBUG] Filtered M1 last timestamp:  2024-03-08 23:58:00
+
+[M1 DEBUG] ⚠️  WARNING: Missing 30 M1 bars (2.0 M15 bars equivalent)
+[M1 DEBUG] Checking last 5 M15 bars for M1 coverage:
+  M15[475] 2024-03-08 22:45:00: 15 M1 bars (expected 15)
+  M15[476] 2024-03-08 23:00:00: 15 M1 bars (expected 15)
+  M15[477] 2024-03-08 23:15:00: 15 M1 bars (expected 15)
+  M15[478] 2024-03-08 23:30:00: 15 M1 bars (expected 15)
+  M15[479] 2024-03-08 23:45:00: 14 M1 bars (expected 15)
+    MISSING M1 timestamps: ['2024-03-08 23:59:00']
+
+[M1 DEBUG] Raw M1 bars AFTER filter end time (2024-03-08 23:59:00): 302081
+[M1 DEBUG] So the raw CSV HAS more M1 data available
+[M1 DEBUG] Next 5 M1 timestamps after filter:
+    [0] 2024-03-11 00:05:00
+    [1] 2024-03-11 00:06:00
+    [2] 2024-03-11 00:07:00
+    [3] 2024-03-11 00:08:00
+    [4] 2024-03-11 00:09:00
+================================================================================
+

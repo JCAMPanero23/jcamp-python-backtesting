@@ -277,11 +277,11 @@ class BacktestService:
             chart_path = os.path.join(self.charts_dir, chart_filename)
             save_charts_to_html(candlestick_fig, equity_fig, chart_path)
 
-            print(f"✅ Charts generated: {chart_path}")
+            print(f"[OK] Charts generated: {chart_path}")
             return chart_path
 
         except Exception as e:
-            print(f"[WARN]️ Chart generation failed: {e}")
+            print(f"[WARN] Chart generation failed: {e}")
             traceback.print_exc()
             return None
 
@@ -408,7 +408,17 @@ class BacktestService:
 
             # Now filter to backtest period (skip warmup)
             df = df_full.iloc[backtest_start_idx:].copy()
-            print(f"[OHLC DATA] Sending to C#: {len(df)} bars (warmup skipped, start from bar {backtest_start_idx})")
+            print(f"[OHLC DATA] After warmup skip: {len(df)} bars")
+
+            # WEEKEND FILTERING: Remove Saturday and Sunday bars for cleaner visualization
+            # In pandas, dayofweek: Monday=0, Tuesday=1, ..., Saturday=5, Sunday=6
+            bars_before_weekend_filter = len(df)
+            df = df[df.index.dayofweek < 5]  # Keep only Mon-Fri (0-4)
+            bars_after_weekend_filter = len(df)
+            weekend_bars_removed = bars_before_weekend_filter - bars_after_weekend_filter
+
+            print(f"[OHLC DATA] Weekend filtering: Removed {weekend_bars_removed} bars (Sat/Sun)")
+            print(f"[OHLC DATA] Sending to C#: {len(df)} bars (weekdays only)")
 
             # DEBUG: Print last 5 bars to see if EMAs exist
             print(f"[DEBUG] Last 5 bars EMA status:")
@@ -473,11 +483,11 @@ class BacktestService:
                 "decimal_places": 5
             }
 
-            print(f"✅ OHLC data prepared: {len(candles)} candles, {len(trades_with_levels)} trades")
+            print(f"[OK] OHLC data prepared: {len(candles)} candles, {len(trades_with_levels)} trades")
             return result
 
         except Exception as e:
-            print(f"[WARN]️ OHLC data preparation failed: {e}")
+            print(f"[WARN] OHLC data preparation failed: {e}")
             traceback.print_exc()
             return {
                 "symbol": request.get('symbol', 'UNKNOWN'),
@@ -517,6 +527,13 @@ class BacktestService:
             # Get the actual M15 dataframe from engine (after warmup skip)
             backtest_start_idx = getattr(engine, 'backtest_start_idx', 0)
             m15_df = engine.df.iloc[backtest_start_idx:].copy()
+
+            # WEEKEND FILTERING: Filter weekends from M15 reference data
+            # This must match the filtering done in _prepare_ohlc_data
+            m15_bars_before = len(m15_df)
+            m15_df = m15_df[m15_df.index.dayofweek < 5]  # Keep Mon-Fri only
+            m15_bars_after = len(m15_df)
+            print(f"[M1 DEBUG] M15 weekend filter: {m15_bars_before} -> {m15_bars_after} bars ({m15_bars_before - m15_bars_after} weekends removed)")
 
             # Use M15 timestamps to filter M1 data
             m15_start_time = m15_df.index[0]
@@ -561,7 +578,7 @@ class BacktestService:
             if len(m1_df_filtered) < len(m15_df) * 15:
                 missing_count = (len(m15_df) * 15) - len(m1_df_filtered)
                 missing_m15_equivalent = missing_count / 15
-                print(f"\n[M1 DEBUG] ⚠️  WARNING: Missing {missing_count} M1 bars ({missing_m15_equivalent:.1f} M15 bars equivalent)")
+                print(f"\n[M1 DEBUG] [WARN] WARNING: Missing {missing_count} M1 bars ({missing_m15_equivalent:.1f} M15 bars equivalent)")
 
                 # Check last 5 M15 bars to see which ones have missing M1 data
                 print(f"[M1 DEBUG] Checking last 5 M15 bars for M1 coverage:")
@@ -595,14 +612,28 @@ class BacktestService:
             # This is critical for chart visualization - EMAs must align with M1 candlesticks
             print(f"[M1 DEBUG] APPLYING FORWARD-FILL TO ELIMINATE GAPS")
 
-            # Create complete minute-by-minute index
-            complete_m1_index = pd.date_range(
-                start=m15_start_time,
-                end=m1_end_time,
-                freq='1min'
-            )
+            # Build M1 index from M15 bars (15 M1 bars per M15 bar)
+            # Note: M1 timestamps can spill into weekends even from Friday M15 bars (e.g., Fri 23:45 → Sat 00:13)
+            # We'll filter weekends from the final M1 index after generation
+            m1_timestamps = []
+            for m15_timestamp in m15_df.index:
+                # Each M15 bar at time T contains M1 bars from T to T+14 minutes
+                for minute_offset in range(15):
+                    m1_ts = m15_timestamp + pd.Timedelta(minutes=minute_offset)
+                    m1_timestamps.append(m1_ts)
 
-            print(f"[M1 DEBUG] Complete index length: {len(complete_m1_index)} bars")
+            complete_m1_index = pd.DatetimeIndex(m1_timestamps)
+
+            # CRITICAL FIX: Filter out weekend M1 bars
+            # Even though M15 bars are weekend-filtered, M1 timestamps can spill into Saturday/Sunday
+            # Example: Friday 23:45 M15 bar generates M1 bars from 23:45-23:59, which includes Saturday 00:00-00:13
+            m1_index_before_weekend_filter = len(complete_m1_index)
+            complete_m1_index = complete_m1_index[complete_m1_index.dayofweek < 5]  # Keep Mon-Fri only
+            m1_weekend_bars_removed = m1_index_before_weekend_filter - len(complete_m1_index)
+
+            print(f"[M1 DEBUG] Complete index length (before weekend filter): {m1_index_before_weekend_filter} bars")
+            print(f"[M1 DEBUG] Weekend filtering: Removed {m1_weekend_bars_removed} M1 bars that fell on Sat/Sun")
+            print(f"[M1 DEBUG] Complete index length (after weekend filter): {len(complete_m1_index)} bars")
             print(f"[M1 DEBUG] Original data length: {len(m1_df_filtered)} bars")
             print(f"[M1 DEBUG] Bars to be filled: {len(complete_m1_index) - len(m1_df_filtered)}")
 
@@ -610,27 +641,41 @@ class BacktestService:
             m1_df_filled = m1_df_filtered.reindex(complete_m1_index)
 
             # Forward-fill OHLC data (each missing bar copies previous bar's close)
-            m1_df_filled = m1_df_filled.fillna(method='ffill')
+            # Use .ffill() instead of deprecated fillna(method='ffill')
+            m1_df_filled = m1_df_filled.ffill()
+
+            # Backward-fill any remaining NaN values at the start (if first bar has no data)
+            m1_df_filled = m1_df_filled.bfill()
+
+            # Drop any remaining NaN values as a final safety measure
+            nan_count_before = m1_df_filled.isnull().sum().sum()
+            if nan_count_before > 0:
+                print(f"[M1 DEBUG] Dropping {nan_count_before} remaining NaN values after ffill/bfill")
+                m1_df_filled = m1_df_filled.dropna()
 
             # Verify no NaN values remain
             if m1_df_filled.isnull().any().any():
-                print(f"[M1 WARN] ⚠️  NaN values remain after forward-fill!")
+                print(f"[M1 WARN] [WARN] NaN values remain after forward-fill!")
                 print(f"[M1 WARN] First NaN at index: {m1_df_filled[m1_df_filled.isnull().any(axis=1)].index[0]}")
             else:
-                print(f"[M1 DEBUG] ✅ Forward-fill complete - no NaN values")
+                print(f"[M1 DEBUG] [OK] Forward-fill complete - no NaN values")
 
-            print(f"[M1 DEBUG] Final M1 bar count: {len(m1_df_filled)}")
-            print(f"[M1 DEBUG] Expected bar count: {len(m15_df) * 15}")
+            print(f"[M1 DEBUG] Final M1 bar count after forward-fill: {len(m1_df_filled)}")
+            print(f"[M1 DEBUG] Expected bar count: {len(complete_m1_index)} (weekend-filtered M1 index)")
 
-            if len(m1_df_filled) == len(m15_df) * 15:
-                print(f"[M1 DEBUG] ✅ PERFECT ALIGNMENT: {len(m1_df_filled)} bars = {len(m15_df)} M15 × 15")
+            if len(m1_df_filled) == len(complete_m1_index):
+                print(f"[M1 DEBUG] [OK] PERFECT ALIGNMENT: {len(m1_df_filled)} bars = expected weekend-filtered count")
             else:
-                print(f"[M1 WARN] ⚠️  Alignment mismatch: {len(m1_df_filled)} ≠ {len(m15_df) * 15}")
+                print(f"[M1 WARN] [WARN] Alignment mismatch: {len(m1_df_filled)} ≠ {len(complete_m1_index)}")
 
             print(f"{'='*80}\n")
 
             # Use filled dataframe for candlestick generation
+            # Weekends are excluded via explicit dayofweek filtering on the complete_m1_index
             m1_df_filtered = m1_df_filled
+
+            print(f"[M1 DEBUG] Ready for candlestick generation: {len(m1_df_filtered)} weekday-only M1 bars")
+            print(f"{'='*80}\n")
 
             # Prepare candlestick data (simplified - no indicators for M1)
             candles = []

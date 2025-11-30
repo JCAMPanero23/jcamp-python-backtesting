@@ -283,7 +283,7 @@ class PerformanceTracker:
         print(f"  Best Trade:       {stats['max_r']:+.2f}R")
         print(f"  Worst Trade:      {stats['min_r']:+.2f}R")
         
-        print("\n[WARN]️  RISK METRICS:")
+        print("\n[WARN] RISK METRICS:")
         print(f"  Max Drawdown:     {stats['max_drawdown_pct']:.2f}%")
         print(f"  Current Drawdown: {stats['current_drawdown_pct']:.2f}%")
         print(f"  Profit Factor:    {stats['profit_factor']:.2f}")
@@ -318,14 +318,14 @@ class PerformanceTracker:
         r_match = (1 - abs(current_stats['total_r'] - baseline_stats.get('total_r', 0)) / baseline_stats.get('total_r', 1)) * 100
         trade_match = (1 - abs(current_stats['total_trades'] - baseline_stats.get('total_trades', 1)) / baseline_stats.get('total_trades', 1)) * 100
         
-        print(f"\n✅ R-Multiple Match: {r_match:.1f}%")
-        print(f"✅ Trade Count Match: {trade_match:.1f}%")
-        
+        print(f"\n[OK] R-Multiple Match: {r_match:.1f}%")
+        print(f"[OK] Trade Count Match: {trade_match:.1f}%")
+
         if r_match >= 95 and trade_match >= 95:
-            print("\n🎉 EXCELLENT! Results match MT5 within 5%")
+            print("\n[SUCCESS] EXCELLENT! Results match MT5 within 5%")
         elif r_match >= 90 and trade_match >= 90:
-            print("\n✅ GOOD! Results match MT5 within 10%")
+            print("\n[OK] GOOD! Results match MT5 within 10%")
         else:
-            print("\n[WARN]️  Results differ from MT5 - investigate discrepancies")
+            print("\n[WARN] Results differ from MT5 - investigate discrepancies")
         
         print("="*70)

@@ -12,10 +12,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo Clearing Python cache...
+cd /d D:\JcampFxTrading\jcamp-python-backtesting
+python -c "import pathlib, shutil; [shutil.rmtree(p) for p in pathlib.Path('.').rglob('__pycache__') if p.exists()]"
+echo Cache cleared.
+echo.
 echo Starting API Server...
 echo Server will be available at: http://localhost:8000
 echo.
-cd /d D:\JcampFxTrading\jcamp-python-backtesting
 python scripts\start_api_server.py
 
 echo.

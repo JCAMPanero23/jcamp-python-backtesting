@@ -12,6 +12,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Clear Python cache
+echo Clearing Python cache...
+cd /d D:\JcampFxTrading\jcamp-python-backtesting
+python -c "import pathlib, shutil; [shutil.rmtree(p) for p in pathlib.Path('.').rglob('__pycache__') if p.exists()]"
+echo Cache cleared.
+echo.
+
 REM Start API Server
 echo [1/2] Starting Python API Server...
 start "JCAMP API Server" cmd /k "cd /d D:\JcampFxTrading\jcamp-python-backtesting && python scripts\start_api_server.py"

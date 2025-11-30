@@ -111,7 +111,7 @@ class CSMCalculator:
                     self.pair_data[pair]['price_change_24h'] = price_change
                 
             except Exception as e:
-                print(f"[WARN]️  Error processing {pair}: {e}")
+                print(f"[WARN] Error processing {pair}: {e}")
                 continue
         
         # Step 2: Distribute strength changes to currencies

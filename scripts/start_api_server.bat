@@ -16,10 +16,14 @@ if exist "%~dp0..\venv\Scripts\activate.bat" (
 )
 
 echo.
+echo Clearing Python cache...
+cd "%~dp0.."
+python -c "import pathlib, shutil; [shutil.rmtree(p) for p in pathlib.Path('.').rglob('__pycache__') if p.exists()]"
+echo Cache cleared.
+echo.
 echo Starting API server...
 echo.
 
-cd "%~dp0.."
 python scripts\start_api_server.py
 
 pause

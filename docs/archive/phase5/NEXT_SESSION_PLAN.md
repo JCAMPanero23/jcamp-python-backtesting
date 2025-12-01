@@ -1,4 +1,4 @@
-# Next Session Plan: Chart Viewer Playback Enhancements
+Mult# Next Session Plan: Chart Viewer Playback Enhancements
 
 **Created:** November 22, 2025
 **Status:** Planned - Ready for Implementation

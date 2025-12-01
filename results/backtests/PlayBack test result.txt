@@ -1,0 +1,29 @@
+__Initial state after Playback started:
+[M1 RENDER] Before candlesticks - Bar 1
+[M1 RENDER] Before candlesticks - Limits=[0.00, 96.00]
+[M1 RENDER] After candlesticks - Limits=[0.00, 96.00] (changed: False)
+[M1 PLAY] Bar 1: currentLimits=[0.00, 96.00], XRange=96.00
+[M1 PLAY] Bar 1: barPos=-75.80, xLeft=0.00, xRight=96.00, Setting limits=[0.00, 96.00]
+[M1 RENDER] AFTER REFRESH - Limits=[0.00, 96.00], Range=96.00
+
+__After zoom scale adjusted
+[M1 RENDER] Before candlesticks - Bar 132
+[M1 RENDER] Before candlesticks - Limits=[54.20, 150.20]
+[M1 RENDER] After candlesticks - Limits=[54.20, 150.20] (changed: False)
+[M1 PLAY] Using saved limits: XRange=96
+[M1 PLAY] Bar 132: barPos=55.20, xLeft=55.20, xRight=151.20, Setting limits=[55.20, 151.20]
+[M1 RENDER] AFTER REFRESH - Limits=[55.20, 151.20], Range=96.00
+[M1 RENDER] Before candlesticks - Bar 133
+[M1 RENDER] Before candlesticks - Limits=[55.20, 151.20]
+[M1 RENDER] After candlesticks - Limits=[55.20, 151.20] (changed: False)
+[M1 PLAY] Using saved limits: XRange=96
+[M1 PLAY] Bar 133: barPos=56.20, xLeft=56.20, xRight=152.20, Setting limits=[56.20, 152.20]
+[M1 RENDER] AFTER REFRESH - Limits=[56.20, 152.20], Range=96.00
+
+__After reset buttons log: 
+[M1 RENDER] Before candlesticks - Bar 1
+[M1 RENDER] Before candlesticks - Limits=[0.00, 1440.00]
+[M1 RENDER] After candlesticks - Limits=[0.00, 1440.00] (changed: False)
+[M1 PLAY] Bar 1: currentLimits=[0.00, 1440.00], XRange=1440.00
+[M1 PLAY] Bar 1: barPos=-1151.00, xLeft=0.00, xRight=1440.00, Setting limits=[0.00, 1440.00]
+[M1 RENDER] AFTER REFRESH - Limits=[0.00, 1440.00], Range=1440.00

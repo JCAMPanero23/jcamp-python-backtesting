@@ -2,7 +2,7 @@
 
 **Purpose:** Single authoritative reference for Claude to understand project state and start working effectively.
 **Last Updated:** December 1, 2025
-**Current Phase:** Phase 5.3 - Chart Viewer Enhancements (Part 1: Viewport Bugs COMPLETE ✅)
+**Current Phase:** Phase 6 - Smart Portfolio Viewer (Part 1.1: Simple Test Strategy EMA Crossover IN PROGRESS 🔄)
 
 ---
 
@@ -14,7 +14,8 @@
 | **C# Chart Viewer** | ✅ Operational | M1 viewport positioning FIXED, playback smooth |
 | **Tests** | 30/31 Passing | 1 Phase 2 test failing |
 | **Main Branch** | ✅ Updated | Phase 5.2 complete, Phase 5.3 Part 1 complete |
-| **Phase 5.3 Branch** | ✅ Active | phase5.3-ux-enhancements, viewport bugs resolved |
+| **Phase 6 Branch** | 🔄 Active | phase6-multi-pair, Smart Portfolio Viewer implementation |
+| **Current Task** | 🔄 In Progress | Phase 6 Part 1.1 - Simple Test Strategy EMA Crossover |
 
 ---
 
@@ -121,6 +122,99 @@
 **Estimated Effort:** 13-19 hours
 
 **For detailed code:** See plan file at `C:\Users\jcamp\.claude\plans\typed-baking-prism.md`
+
+---
+
+## PHASE 6: SMART PORTFOLIO VIEWER - IN PROGRESS (Dec 1, 2025)
+
+### 📋 Phase 6 Overview
+
+**Objective:** Implement multi-pair portfolio backtesting with intelligent trade management
+
+**Key Features:**
+- Multi-pair backtest execution (EURUSD, GBPUSD, USDJPY simultaneously)
+- Portfolio-level position limits (max 3 concurrent trades, configurable)
+- CSM-based trade prioritization (strongest signals get trading slots)
+- Smart auto-switching chart viewer (display pair with newest trade)
+- Refactored Simple Test strategy (EMA crossover + H1 confirmation)
+
+**Architecture:** Smart single-chart viewer with functional pair tabs (NOT 2x2 grid)
+
+**Estimated Total Effort:** 16-22 hours
+
+---
+
+### 🔄 Phase 6 Part 1: Simple Test Strategy Enhancement (2-3 hours) - CURRENT
+
+**Status:** IN PROGRESS
+
+#### Part 1.1: Modify Simple Test Strategy (1.5-2 hours) ⏳ ACTIVE
+
+**File:** `src/strategies/simple_test.py`
+
+**Changes:**
+- Replace time-based alternating logic with EMA crossover detection
+- **Entry Signal:** M15 EMA 20 crosses M15 EMA 50
+- **Confirmation:** H1 EMAs must align in same direction
+- **BUY:** M15 fast crosses above mid + H1 fast > H1 mid
+- **SELL:** M15 fast crosses below mid + H1 fast < H1 mid
+
+**Implementation Details:**
+```python
+# Detect M15 EMA crossover
+if prev_fast < prev_mid and curr_fast >= curr_mid:
+    signal = 'BUY'  # Bullish crossover
+elif prev_fast > prev_mid and curr_fast <= curr_mid:
+    signal = 'SELL'  # Bearish crossover
+
+# Verify H1 EMA alignment for confirmation
+h1_aligned = (h1_fast > h1_mid and signal == 'BUY') or \
+             (h1_fast < h1_mid and signal == 'SELL')
+
+if not h1_aligned:
+    return 'NONE'  # Reject signal if H1 misaligned
+```
+
+**Expected Result:**
+- Fewer trades than time-based logic (only on valid EMA crossovers)
+- No trades when H1 EMAs contradict M15 signal
+- Trade details include crossover strength metrics
+
+#### Part 1.2: Test Strategy Changes (0.5-1 hour) ⏸️ PENDING
+
+**Testing Plan:**
+- Run pytest: `python -m pytest tests/test_phase2.py::test_simple_test_strategy -v`
+- Manual backtest: EURUSD 2024 with Simple Test strategy
+- Verify trades occur only on EMA crossovers
+- Confirm H1 confirmation filtering works
+
+---
+
+### 📋 Phase 6 Remaining Parts (TBD)
+
+**Part 2:** Backend Portfolio API (5-7 hours)
+- Portfolio Trade Allocator service
+- Multi-pair API endpoints (`/run-multi`, `/ohlc-multi`)
+- Backend models and service updates
+
+**Part 3:** Extract C# Services (3-4 hours)
+- ChartRenderingService (extract rendering logic)
+- ChartViewportManager (viewport calculations)
+- Preserve all Phase 5.3 bug fixes
+
+**Part 4:** Frontend Multi-Pair Viewer (5-7 hours)
+- Make pair tabs functional
+- Smart auto-switching logic
+- Portfolio metrics aggregation
+- Multi-pair data management
+
+**Part 5:** Integration & Testing (2-3 hours)
+- BacktestWindow multi-pair launch UI
+- End-to-end testing
+- Regression testing (Phase 5.3 bugs)
+- Performance validation
+
+**For detailed implementation:** See `docs/current/PHASE_6_SMART_PORTFOLIO.md`
 
 ---
 
@@ -238,30 +332,40 @@ D:\JcampFxTrading/
 
 ## DEVELOPMENT ROADMAP (PHASE_5_7_MASTER_PLAN.md)
 
-### Phase 5.3: Chart Viewer Enhancements (CURRENT)
+### Phase 5.3: Chart Viewer Enhancements ✅ PART 1 COMPLETE
 - **Part 1:** Critical bug fixes ✅ COMPLETE (Dec 1, 2025)
   - [x] Fix viewport positioning in M1 playback mode
   - [x] Fix reset button viewport calculation
   - [x] Fix zoom scale preservation during playback
   - [x] Root cause: M1→M15 index coordinate mismatch
   - **Key Commits:** 2309b9d, ed49bc2, f951fc0, ec96f47
-- **Part 2:** H1/H4 timeframe switching (2-3 hours)
-  - [ ] Implement timeframe aggregation logic
-  - [ ] Recalculate indicators for each timeframe
-  - [ ] Update grid spacing
-- **Part 3:** UX enhancements (1-2 hours)
-  - [ ] Skip weekend gaps during playback
-  - [ ] Redesign recent trades sidebar (3-section tabs)
-- **Part 4:** Pending trade functionality (3-4 hours)
-- **Part 5:** MT5 EA comparison (4-6 hours)
+- **Part 2:** H1/H4 timeframe switching (DEFERRED - Phase 5.3 Part 2+)
+- **Part 3:** UX enhancements (DEFERRED - Phase 5.3 Part 2+)
+- **Part 4:** Pending trade functionality (DEFERRED - Phase 5.3 Part 2+)
+- **Part 5:** MT5 EA comparison (DEFERRED - Phase 5.3 Part 2+)
 
-### Phase 6: Multi-Pair Backtesting (6-8 hours)
-- Multi-pair API endpoint
-- Parallel execution
-- Results aggregation
-- C# multi-select UI
+### Phase 6: Smart Portfolio Viewer (16-22 hours) 🔄 CURRENT
+- **Part 1:** Simple Test Strategy Enhancement (2-3 hours) 🔄 IN PROGRESS
+  - [x] Part 1.1: EMA crossover logic with H1 confirmation ⏳ ACTIVE
+  - [ ] Part 1.2: Test strategy changes (0.5-1 hour)
+- **Part 2:** Backend Portfolio API (5-7 hours)
+  - Portfolio Trade Allocator (position limits, CSM prioritization)
+  - Multi-pair endpoints: `/run-multi`, `/ohlc-multi`
+  - Backend models and service updates
+- **Part 3:** Extract C# Services (3-4 hours)
+  - ChartRenderingService, ChartViewportManager
+  - Preserve Phase 5.3 bug fixes
+- **Part 4:** Frontend Multi-Pair Viewer (5-7 hours)
+  - Functional pair tabs with auto-switching
+  - Portfolio metrics aggregation
+  - Smart chart display logic
+- **Part 5:** Integration & Testing (2-3 hours)
+  - Multi-pair launch UI
+  - End-to-end testing, regression tests
 
-### Phase 7: Strategy Fixes & Enhancements (8-10 hours)
+**For detailed plan:** See `docs/current/PHASE_6_SMART_PORTFOLIO.md`
+
+### Phase 7: Strategy Fixes & Enhancements (8-10 hours) ⏸️ PLANNED
 - **NOTE:** Strategy Logic Mismatch investigation is Phase 7, NOT Phase 1
 - Trend Rider: trailing stops, multi-timeframe confirmation, breakeven logic
 - Range Rider: better range detection, dynamic TP/SL
@@ -347,13 +451,15 @@ dotnet build
 
 - **Phase 5.2 COMPLETE:** ✅ EMA overlay bug fixed - EMAs displaying correctly with H1 alignment
 - **Phase 5.3 PART 1 COMPLETE:** ✅ M1 viewport positioning fixed - Playback smooth, current bar at 80%
-- **Phase 5.3 PART 2 NEXT:** H1/H4 timeframe switching (TBD next session)
+- **Phase 6 IN PROGRESS:** 🔄 Smart Portfolio Viewer - Part 1.1 ACTIVE (Simple Test Strategy EMA Crossover)
 - **Two Git Repos:** Python backtesting and CSMMonitor are separate - commit independently
-- **Branch Strategy:** Main branch updated with Phase 5.2. Using phase5.3-ux-enhancements branch for Phase 5.3 work
+- **Branch Strategy:** Using phase6-multi-pair branch for Phase 6 work (both repos)
 - **Architecture Note:** Viewport always in M15 coordinates (0-96 bars). M1 (0-1440 bars) used only for smooth animation within M15 candles
+- **Phase 5.3 Bugs Preserved:** ALL Phase 5.3 Part 1 bug fixes must be preserved in Phase 6 code extractions
 - **Strategy Logic:** Phase 7 task, NOT Phase 1 (per PHASE_5_7_MASTER_PLAN.md)
 - **Business Timeline:** 5-6 months real money validation required before launch
-- **Next Priority:** Phase 5.3 Part 2 (Timeframe switching) → Phase 6 (Multi-pair) → Phase 7 (Strategy fixes)
+- **Current Priority:** Phase 6 Part 1.1 (EMA crossover) → Part 1.2 (Testing) → Part 2 (Portfolio API) → Part 3-5
+- **Phase 5.3 Deferred:** Parts 2-5 deferred until after Phase 6 complete (timeframe switching, UX enhancements)
 
 ---
 

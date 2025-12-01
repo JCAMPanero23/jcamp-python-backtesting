@@ -162,32 +162,94 @@ class BacktestEngine:
         # Add RSI for Range Rider
         df['rsi'] = 50.0  # Simplified for now
 
+        # Calculate H1 EMAs for Simple Test Strategy
+        if self.verbose:
+            print("[TREND] Calculating H1 EMAs for confirmation...")
+
+        # Resample M1 to H1 for H1 EMA calculation
+        df_h1 = self.loader.resample_to_timeframe(df_m1, 'H1')
+
+        # Calculate H1 EMAs
+        df_h1['ema_20'] = self.indicators_calc.calculate_ema(df_h1, 20)
+        df_h1['ema_50'] = self.indicators_calc.calculate_ema(df_h1, 50)
+        df_h1['ema_100'] = self.indicators_calc.calculate_ema(df_h1, 100)
+
+        # Initialize H1 EMA columns in M15 dataframe
+        df['ema_20_h1'] = pd.NA
+        df['ema_50_h1'] = pd.NA
+        df['ema_100_h1'] = pd.NA
+
+        # Optimized H1 EMA interpolation using reindex (FAST and robust!)
+        # Shift H1 index by 1 hour to represent completion time
+        df_h1_complete = df_h1.copy()
+        df_h1_complete.index = df_h1_complete.index + pd.Timedelta(hours=1)
+
+        # Reindex H1 EMAs to M15 frequency using forward fill (use last completed H1 value)
+        # This automatically handles the "only use completed bars" requirement
+        df_h1_reindexed = df_h1_complete.reindex(df.index, method='ffill')
+
+        # For interpolation, we also need the previous H1 bar
+        # Shift by one more hour to get previous completed H1
+        df_h1_prev_complete = df_h1.copy()
+        df_h1_prev_complete.index = df_h1_prev_complete.index + pd.Timedelta(hours=2)
+        df_h1_prev_reindexed = df_h1_prev_complete.reindex(df.index, method='ffill')
+
+        # Calculate interpolation factor based on minutes into the hour
+        minutes_into_hour = df.index.minute
+        factor = minutes_into_hour / 60.0
+
+        # Linear interpolation: prev + (curr - prev) * factor
+        # Handle NaN values gracefully
+        for ema_period in [20, 50, 100]:
+            curr_series = df_h1_reindexed[f'ema_{ema_period}']
+            prev_series = df_h1_prev_reindexed[f'ema_{ema_period}']
+
+            # Interpolate where both values are valid
+            interpolated = prev_series + (curr_series - prev_series) * factor
+
+            # Fallback: use current if interpolation failed, then previous if that failed too
+            interpolated = interpolated.fillna(curr_series).fillna(prev_series)
+
+            df[f'ema_{ema_period}_h1'] = interpolated
+
+        if self.verbose:
+            print(f"[OK] H1 EMAs calculated on {len(df_h1)} H1 bars and interpolated to M15 (vectorized)")
+
         # Add CSM columns
         df['csm_base'] = 50.0
         df['csm_quote'] = 50.0
         df['csm_diff'] = 0.0
 
-        if self.verbose:
-            print("[CSM] Calculating Currency Strength Meter...")
+        # Skip CSM calculation for Simple Test strategy (doesn't use CSM)
+        # This saves ~12 minutes for single-pair backtests!
+        strategy_name = self.strategy.get_strategy_name()
+        skip_csm = (strategy_name == 'SIMPLE_TEST')
 
-        # Calculate CSM for each bar
-        pair_data = {symbol: df}
-        base, quote = symbol[:3], symbol[3:6]
+        if skip_csm:
+            if self.verbose:
+                print(f"[CSM] Skipping CSM calculation for {strategy_name} (not required)")
+        else:
+            if self.verbose:
+                print("[CSM] Calculating Currency Strength Meter...")
 
-        for idx in range(len(df)):
-            current_time = df.index[idx]
+            # Calculate CSM for each bar
+            pair_data = {symbol: df}
+            base, quote = symbol[:3], symbol[3:6]
 
-            # Update CSM
-            success = self.csm_calc.update_csm(pair_data, current_time.to_pydatetime(), self.timeframe)
+            for idx in range(len(df)):
+                current_time = df.index[idx]
 
-            if success:
-                base_strength = self.csm_calc.get_currency_strength(base)
-                quote_strength = self.csm_calc.get_currency_strength(quote)
-                diff = base_strength - quote_strength
+                # Update CSM
+                success = self.csm_calc.update_csm(pair_data, current_time.to_pydatetime(), self.timeframe)
 
-                df.loc[current_time, 'csm_base'] = base_strength
-                df.loc[current_time, 'csm_quote'] = quote_strength
-                df.loc[current_time, 'csm_diff'] = diff
+                if success:
+                    base_strength = self.csm_calc.get_currency_strength(base)
+                    quote_strength = self.csm_calc.get_currency_strength(quote)
+                    diff = base_strength - quote_strength
+
+                    df.loc[current_time, 'csm_base'] = base_strength
+                    df.loc[current_time, 'csm_quote'] = quote_strength
+                    df.loc[current_time, 'csm_diff'] = diff
 
         if self.verbose:
             print("[OK] Data preparation complete!\n")

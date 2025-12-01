@@ -1,9 +1,9 @@
 # Master Plan: Phase 5-7 Implementation
 
 **Updated:** December 1, 2025
-**Status:** Phase 5.3 Part 1 COMPLETE - Enhancements Ready for Implementation
-**Current Work:** Phase 5.3 UX Enhancements (Enhancement #1 + #3)
-**Estimated Total Effort for Remaining Work:** 14-20 hours
+**Status:** Phase 6 Part 1.1 IN PROGRESS - Simple Test Strategy EMA Crossover
+**Current Work:** Phase 6 - Smart Portfolio Viewer
+**Estimated Total Effort for Phase 6:** 16-22 hours
 
 ---
 
@@ -16,14 +16,15 @@
   - Zoom preservation working
   - Key commits: 2309b9d, ed49bc2, f951fc0, ec96f47
 
-### 🔄 Ready Now
-- **Enhancement #1 Adjustments:** Timeline-Based Recent Trades (30-45 min)
-- **Enhancement #3:** Multi-Pair Chart Display (13-19 hours)
+### 🔄 In Progress
+- **Phase 6 Part 1.1:** Simple Test Strategy EMA Crossover (ACTIVE)
+  - Replace time-based logic with EMA crossover + H1 confirmation
+  - Expected: 1.5-2 hours implementation + 0.5-1 hour testing
 
 ### 📋 Planned
-- Part 2: H1/H4 Timeframe Switching (2-3 hours)
-- Phase 6: Multi-Pair Backtesting API
-- Phase 7: Strategy Enhancements
+- **Phase 6 Parts 2-5:** Backend API, C# Services, Multi-Pair Viewer, Integration (14-19 hours)
+- **Phase 5.3 Parts 2-5:** DEFERRED until after Phase 6 (Timeframe switching, UX enhancements)
+- **Phase 7:** Strategy Enhancements (8-10 hours)
 
 ---
 
@@ -77,17 +78,66 @@
 
 ---
 
+## Phase 6: Smart Portfolio Viewer (CURRENT)
+
+**Status:** Part 1.1 IN PROGRESS
+**Total Effort:** 16-22 hours
+**Branch:** phase6-multi-pair (both repos)
+
+### Objectives
+- Multi-pair backtest execution (EURUSD, GBPUSD, USDJPY)
+- Portfolio-level position limits (max 3 concurrent, configurable)
+- CSM-based trade prioritization
+- Smart auto-switching chart viewer
+- Refactored Simple Test strategy (EMA crossover + H1 confirmation)
+
+### Part 1: Simple Test Strategy Enhancement (2-3 hours) 🔄 IN PROGRESS
+
+**Part 1.1: Modify Strategy** (1.5-2 hours) ⏳ ACTIVE
+- File: `src/strategies/simple_test.py`
+- Replace time-based logic with EMA crossover detection
+- Entry: M15 EMA 20 crosses M15 EMA 50
+- Confirmation: H1 EMAs must align in same direction
+- Implementation: Detect crossover, validate H1 alignment, calculate confidence
+
+**Part 1.2: Test Changes** (0.5-1 hour) ⏸️ PENDING
+- Run pytest: `test_phase2.py::test_simple_test_strategy`
+- Manual backtest: EURUSD 2024
+- Verify crossover-only trades, H1 confirmation filtering
+
+### Part 2: Backend Portfolio API (5-7 hours) ⏸️ PLANNED
+- Portfolio Trade Allocator (position limits, CSM prioritization)
+- Endpoints: `/run-multi`, `/ohlc-multi`
+- Backend models: `MultiBacktestRequest`
+- Service updates: portfolio-aware execution
+
+### Part 3: Extract C# Services (3-4 hours) ⏸️ PLANNED
+- ChartRenderingService (candlesticks, EMAs, trades)
+- ChartViewportManager (M1→M15 conversion, positioning)
+- **CRITICAL:** Preserve all Phase 5.3 Part 1 bug fixes
+
+### Part 4: Frontend Multi-Pair Viewer (5-7 hours) ⏸️ PLANNED
+- Functional pair tabs with auto-switching
+- Multi-pair data management
+- Portfolio metrics aggregation
+- Smart chart display logic
+
+### Part 5: Integration & Testing (2-3 hours) ⏸️ PLANNED
+- BacktestWindow multi-pair launch UI
+- End-to-end testing
+- Regression testing (Phase 5.3 bugs preserved)
+
+**Detailed Plan:** See `docs/current/PHASE_6_SMART_PORTFOLIO.md`
+
+---
+
 ## Future Phases (Reference)
 
-### Phase 5.3 Part 2: H1/H4 Timeframe Switching (PLANNED)
-- Implement M15→H1/H4 aggregation
-- Recalculate indicators per timeframe
-- Update grid spacing based on timeframe
-
-### Phase 6: Multi-Pair Backtesting (PLANNED)
-- Enhanced multi-pair API support
-- Results aggregation and display
-- Portfolio-level metrics
+### Phase 5.3 Parts 2-5: DEFERRED Until After Phase 6
+- Part 2: H1/H4 Timeframe Switching (2-3 hours)
+- Part 3: UX enhancements (1-2 hours)
+- Part 4: Pending trade functionality (3-4 hours)
+- Part 5: MT5 EA comparison (4-6 hours)
 
 ### Phase 7: Strategy Enhancements (PLANNED)
 - Trailing stops, breakeven logic
@@ -103,8 +153,8 @@
 | Date | Work | Status |
 |------|------|--------|
 | Nov 22-30 | Phase 5.3 Part 1 | ✅ Complete |
-| Dec 1 | Phase 5.3 Part 1 Verification | ✅ Complete |
-| Dec 1+ | Phase 5.3 Enhancements (#1 & #3) | 🔄 Current |
+| Dec 1 (AM) | Phase 5.3 Part 1 Verification | ✅ Complete |
+| Dec 1 (PM) | Phase 6 Part 1.1 - Simple Test EMA Crossover | 🔄 Current |
 
 ---
 

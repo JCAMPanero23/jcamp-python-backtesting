@@ -3,20 +3,23 @@
 REGIME DETECTOR - Market Condition Classification
 ═══════════════════════════════════════════════════════════════════════════════
 Classifies market conditions as TRENDING, RANGING, or TRANSITIONAL based on
-multiple technical indicators. Matches MT5 v1.96 regime detection logic.
+multiple technical indicators. Enhanced with MT5-inspired components.
 
-Classification Thresholds:
-- TRENDING: Score >= 55% (strong directional movement)
-- RANGING: Score <= 40% (sideways consolidation)  
-- TRANSITIONAL: Score between 40-55% (unclear regime)
+Classification Method (Competitive Scoring):
+- Calculate TRENDING score (sum of component contributions)
+- Calculate RANGING score (inverse of components)
+- If scores within 5% → TRANSITIONAL
+- If trending% >= 55% → TRENDING
+- If ranging% >= 55% → RANGING
+- Otherwise → TRANSITIONAL
 
-Scoring Components (0-100 points each):
+Scoring Components (0-25 points each):
 1. ADX Strength (25 points) - Trend strength measurement
 2. EMA Alignment (25 points) - Trend direction consistency
-3. Directional Movement (25 points) - +DI/-DI dominance
-4. Price vs EMA (25 points) - Price position relative to moving averages
+3. ATR Volatility (25 points) - Expanding/contracting volatility
+4. Price Action (25 points) - Recent bar patterns (higher highs/lows, candle bodies)
 
-Total Score: Sum of components, normalized to 0-100%
+Total: 100 points available, split between trending vs ranging
 ═══════════════════════════════════════════════════════════════════════════════
 """
 
@@ -47,28 +50,52 @@ class RegimeDetector:
     Detect market regime (Trending vs Ranging) based on technical indicators
     """
     
-    def __init__(self, 
+    def __init__(self,
                  trending_threshold: float = TRENDING_THRESHOLD_PERCENT,
                  ranging_threshold: float = RANGING_THRESHOLD_PERCENT,
                  min_adx_trending: float = MIN_ADX_FOR_TRENDING,
-                 min_ema_separation: float = MIN_EMA_SEPARATION):
+                 min_ema_separation: float = MIN_EMA_SEPARATION,
+                 atr_lookback_bars: int = ATR_LOOKBACK_BARS,
+                 atr_expanding_threshold: float = ATR_EXPANDING_THRESHOLD,
+                 atr_contracting_threshold: float = ATR_CONTRACTING_THRESHOLD,
+                 price_action_lookback: int = PRICE_ACTION_LOOKBACK,
+                 strong_body_threshold: float = STRONG_BODY_THRESHOLD,
+                 weak_body_threshold: float = WEAK_BODY_THRESHOLD,
+                 close_scores_threshold: float = CLOSE_SCORES_THRESHOLD,
+                 verbose_logging: bool = VERBOSE_REGIME_LOGGING):
         """
         Initialize regime detector
-        
+
         Args:
             trending_threshold: Score >= this = TRENDING (default 55%)
-            ranging_threshold: Score <= this = RANGING (default 40%)
+            ranging_threshold: Score >= this = RANGING (default 55%)
             min_adx_trending: Min ADX for trending regime (default 30.0)
             min_ema_separation: Min EMA separation % (default 0.40%)
+            atr_lookback_bars: ATR average lookback period (default 48)
+            atr_expanding_threshold: ATR ratio for expanding volatility (default 1.2)
+            atr_contracting_threshold: ATR ratio for contracting volatility (default 0.8)
+            price_action_lookback: Bars to analyze for price action (default 10)
+            strong_body_threshold: Body/range ratio for strong trending (default 0.6)
+            weak_body_threshold: Body/range ratio for ranging (default 0.3)
+            close_scores_threshold: If scores within this %, mark TRANSITIONAL (default 5.0)
+            verbose_logging: Enable detailed component logging (default False)
         """
         self.trending_threshold = trending_threshold
         self.ranging_threshold = ranging_threshold
         self.min_adx_trending = min_adx_trending
         self.min_ema_separation = min_ema_separation
-        
+        self.atr_lookback_bars = atr_lookback_bars
+        self.atr_expanding_threshold = atr_expanding_threshold
+        self.atr_contracting_threshold = atr_contracting_threshold
+        self.price_action_lookback = price_action_lookback
+        self.strong_body_threshold = strong_body_threshold
+        self.weak_body_threshold = weak_body_threshold
+        self.close_scores_threshold = close_scores_threshold
+        self.verbose_logging = verbose_logging
+
         # Initialize indicators calculator
         self.indicators = TechnicalIndicators()
-        
+
         # Regime history
         self.regime_history = []
         self.last_detection_time = None
@@ -87,27 +114,47 @@ class RegimeDetector:
         """
         # Calculate all indicators
         indicators = self.indicators.calculate_all_indicators(df)
-        
+
         # Calculate regime score components
         adx_score = self._score_adx(indicators['adx_14'])
         ema_score = self._score_ema_alignment(indicators)
-        di_score = self._score_directional_movement(indicators)
-        price_ema_score = self._score_price_vs_ema(df, indicators)
-        
-        # Total score (0-100 points)
-        total_score = adx_score + ema_score + di_score + price_ema_score
-        
-        # Normalize to percentage (out of 100)
-        regime_score = total_score  # Already out of 100
-        
-        # Classify regime
-        if regime_score >= self.trending_threshold:
+        atr_score = self._score_atr_volatility(df, indicators)
+        price_action_score = self._score_price_action(df)
+
+        # Calculate component contributions to TRENDING
+        trending_score = adx_score + ema_score + atr_score + price_action_score
+
+        # Calculate component contributions to RANGING
+        # (inverse scoring - components score LOW for ranging)
+        ranging_score = (25 - adx_score) + (25 - ema_score) + (25 - atr_score) + (25 - price_action_score)
+
+        # Total available points = 100 (4 components × 25 points each)
+        total_score = trending_score + ranging_score
+
+        # Calculate percentages
+        if total_score > 0:
+            trending_percent = (trending_score / total_score) * 100
+            ranging_percent = (ranging_score / total_score) * 100
+        else:
+            trending_percent = 50.0
+            ranging_percent = 50.0
+
+        # Classification with "close scores" buffer
+        score_difference = abs(trending_percent - ranging_percent)
+
+        if score_difference < self.close_scores_threshold:
+            # Scores too close = TRANSITIONAL
+            regime_type = RegimeType.TRANSITIONAL
+        elif trending_percent >= self.trending_threshold:
             regime_type = RegimeType.TRENDING
-        elif regime_score <= self.ranging_threshold:
+        elif ranging_percent >= self.ranging_threshold:
             regime_type = RegimeType.RANGING
         else:
             regime_type = RegimeType.TRANSITIONAL
-        
+
+        # Store trending percent as primary score for backward compatibility
+        regime_score = trending_percent
+
         # Build result dictionary
         result = {
             'regime': regime_type,
@@ -116,8 +163,13 @@ class RegimeDetector:
             'components': {
                 'adx_score': adx_score,
                 'ema_score': ema_score,
-                'di_score': di_score,
-                'price_ema_score': price_ema_score
+                'atr_score': atr_score,
+                'price_action_score': price_action_score,
+                'trending_score': trending_score,
+                'ranging_score': ranging_score,
+                'trending_percent': trending_percent,
+                'ranging_percent': ranging_percent,
+                'score_difference': score_difference
             },
             'indicators': indicators,
             'classification': {
@@ -130,7 +182,30 @@ class RegimeDetector:
         # Update history
         self.regime_history.append(result)
         self.last_detection_time = result['timestamp']
-        
+
+        # Detailed logging for MT5 validation
+        if self.verbose_logging:
+            print("\n" + "="*70)
+            print("REGIME DETECTION - Component Breakdown")
+            print("="*70)
+            print(f"Timestamp: {result['timestamp']}")
+            print(f"\n--- COMPONENT SCORES (0-25 points each) ---")
+            print(f"  ADX Score:          {adx_score:.2f} / 25.0")
+            print(f"  EMA Alignment:      {ema_score:.2f} / 25.0")
+            print(f"  ATR Volatility:     {atr_score:.2f} / 25.0")
+            print(f"  Price Action:       {price_action_score:.2f} / 25.0")
+            print(f"\n--- COMPETITIVE SCORING ---")
+            print(f"  Trending Score:     {trending_score:.2f} / 100.0 ({trending_percent:.1f}%)")
+            print(f"  Ranging Score:      {ranging_score:.2f} / 100.0 ({ranging_percent:.1f}%)")
+            print(f"  Score Difference:   {score_difference:.1f}%")
+            print(f"\n--- CLASSIFICATION ---")
+            print(f"  Regime Type:        {regime_type.value}")
+            print(f"  Threshold Check:")
+            print(f"    - Trending >= {self.trending_threshold}%: {trending_percent >= self.trending_threshold}")
+            print(f"    - Ranging >= {self.ranging_threshold}%: {ranging_percent >= self.ranging_threshold}")
+            print(f"    - Close Scores (< {self.close_scores_threshold}%): {score_difference < self.close_scores_threshold}")
+            print("="*70 + "\n")
+
         return result
     
     # ═══════════════════════════════════════════════════════════════════════════
@@ -187,64 +262,127 @@ class RegimeDetector:
             # Weak separation: Proportional points
             return (ema_separation / self.min_ema_separation) * 25.0
     
-    def _score_directional_movement(self, indicators: dict) -> float:
+    def _score_atr_volatility(self, df: pd.DataFrame, indicators: dict) -> float:
         """
-        Score directional movement dominance (0-25 points)
-        
-        Strong +DI or -DI dominance = Trending (25 points)
-        Equal +DI and -DI = Ranging (0 points)
-        
+        Score ATR volatility expansion/contraction (0-25 points)
+
+        MT5 Logic (adapted for Python):
+        - ATR ratio > 1.2: Expanding volatility = Trending (25 points)
+        - ATR ratio < 0.8: Contracting volatility = Ranging (0 points)
+        - ATR ratio 0.8-1.2: Neutral (proportional 0-25)
+
+        ATR Ratio = Current ATR / Average ATR (lookback period)
+
         Args:
+            df: DataFrame with price data (needed for ATR history)
             indicators: Dictionary with indicator values
-            
+
         Returns:
-            Score (0-25)
+            Score (0-25): Higher = more trending
         """
-        plus_di = indicators['plus_di']
-        minus_di = indicators['minus_di']
-        
-        # Calculate dominance ratio
-        total_di = plus_di + minus_di
-        
-        if total_di == 0:
+        current_atr = indicators['atr_14']
+
+        # Calculate ATR series for historical values
+        atr_series = self.indicators.calculate_atr(df, 14)
+
+        # Calculate average ATR over lookback period
+        if len(atr_series) < self.atr_lookback_bars:
+            # Not enough data, use available bars
+            lookback = len(atr_series)
+        else:
+            lookback = self.atr_lookback_bars
+
+        atr_values = atr_series.tail(lookback)
+        avg_atr = atr_values.mean()
+
+        if avg_atr == 0 or pd.isna(avg_atr):
+            return 12.5  # Neutral if no data
+
+        # Calculate ATR ratio
+        atr_ratio = current_atr / avg_atr
+
+        # Score based on ratio
+        if atr_ratio >= self.atr_expanding_threshold:
+            # Expanding volatility = trending
+            # Cap at 25 for ratios > 1.5
+            score = 25.0 * (atr_ratio / self.atr_expanding_threshold)
+            return min(score, 25.0)
+        elif atr_ratio <= self.atr_contracting_threshold:
+            # Contracting volatility = ranging
             return 0.0
-        
-        # Dominance = |+DI - -DI| / (+DI + -DI)
-        dominance = abs(plus_di - minus_di) / total_di
-        
-        # Score: 0 (equal) to 25 (one completely dominates)
-        return dominance * 25.0
+        else:
+            # Neutral zone (0.8-1.2): Linear scale
+            # 0.8 → 0 points, 1.2 → 25 points
+            range_width = self.atr_expanding_threshold - self.atr_contracting_threshold
+            score = ((atr_ratio - self.atr_contracting_threshold) / range_width) * 25.0
+            return score
     
-    def _score_price_vs_ema(self, df: pd.DataFrame, indicators: dict) -> float:
+    def _score_price_action(self, df: pd.DataFrame) -> float:
         """
-        Score price position vs EMAs (0-25 points)
-        
-        Price far from EMAs = Trending (25 points)
-        Price near EMAs = Ranging (0 points)
-        
+        Score recent price action patterns (0-25 points)
+
+        MT5-inspired logic (Python-optimized):
+        - Analyzes last N bars for trending vs ranging behavior
+        - Trending signals: Higher highs/lows, strong directional candles
+        - Ranging signals: Overlapping candles, small bodies, wicks
+
         Args:
-            df: DataFrame with price data
-            indicators: Dictionary with indicator values
-            
+            df: DataFrame with OHLC data
+
         Returns:
-            Score (0-25)
+            Score (0-25): Higher = more trending, Lower = more ranging
         """
-        current_price = df['close'].iloc[-1]
-        ema_20 = indicators['ema_20']
-        ema_50 = indicators['ema_50']
-        
-        # Calculate distance from EMAs as percentage
-        dist_20 = abs(current_price - ema_20) / current_price * 100
-        dist_50 = abs(current_price - ema_50) / current_price * 100
-        
-        # Average distance
-        avg_distance = (dist_20 + dist_50) / 2.0
-        
-        # Score: 0% distance = 0 points, 2%+ distance = 25 points
-        # Linear scale from 0-2%
-        score = min(25.0, (avg_distance / 2.0) * 25.0)
-        
-        return score
+        lookback = self.price_action_lookback
+
+        if len(df) < lookback + 1:
+            return 12.5  # Neutral if insufficient data
+
+        recent_bars = df.tail(lookback)
+
+        # Component 1: Higher Highs / Lower Lows Pattern (10 points)
+        highs = recent_bars['high'].values
+        lows = recent_bars['low'].values
+
+        # Count higher highs and lower lows
+        higher_highs = sum(1 for i in range(1, len(highs)) if highs[i] > highs[i-1])
+        lower_lows = sum(1 for i in range(1, len(lows)) if lows[i] < lows[i-1])
+
+        # Directional consistency: either mostly higher highs OR mostly lower lows
+        max_direction = max(higher_highs, lower_lows)
+        hl_score = (max_direction / (lookback - 1)) * 10.0  # 0-10 points
+
+        # Component 2: Candle Body Strength (10 points)
+        bodies = abs(recent_bars['close'] - recent_bars['open'])
+        ranges = recent_bars['high'] - recent_bars['low']
+
+        # Avoid division by zero
+        body_ratios = bodies / ranges.replace(0, 1)
+        avg_body_ratio = body_ratios.mean()
+
+        # Strong bodies (ratio > 0.6) = trending
+        # Weak bodies (ratio < 0.3) = ranging
+        if avg_body_ratio >= self.strong_body_threshold:
+            body_score = 10.0
+        elif avg_body_ratio <= self.weak_body_threshold:
+            body_score = 0.0
+        else:
+            body_score = ((avg_body_ratio - self.weak_body_threshold) /
+                         (self.strong_body_threshold - self.weak_body_threshold)) * 10.0
+
+        # Component 3: Directional Momentum (5 points)
+        closes = recent_bars['close'].values
+        price_change = closes[-1] - closes[0]
+        price_range = max(highs) - min(lows)
+
+        if price_range > 0:
+            momentum_ratio = abs(price_change) / price_range
+            momentum_score = momentum_ratio * 5.0
+        else:
+            momentum_score = 0.0
+
+        # Total score (0-25)
+        total_score = hl_score + body_score + momentum_score
+        return min(total_score, 25.0)
     
     # ═══════════════════════════════════════════════════════════════════════════
     # REGIME ANALYSIS & STATISTICS
@@ -350,12 +488,13 @@ class RegimeDetector:
         summary += f"Component Scores (out of 25):\n"
         summary += f"  ADX Strength:      {components['adx_score']:.1f}\n"
         summary += f"  EMA Alignment:     {components['ema_score']:.1f}\n"
-        summary += f"  Directional Move:  {components['di_score']:.1f}\n"
-        summary += f"  Price vs EMA:      {components['price_ema_score']:.1f}\n"
+        summary += f"  ATR Volatility:    {components['atr_score']:.1f}\n"
+        summary += f"  Price Action:      {components['price_action_score']:.1f}\n"
         summary += f"{'-'*60}\n"
         summary += f"Key Indicators:\n"
         summary += f"  ADX: {result['indicators']['adx_14']:.2f}\n"
         summary += f"  EMA Sep: {result['indicators']['ema_separation']:.2f}%\n"
+        summary += f"  ATR: {result['indicators']['atr_14']:.4f}\n"
         summary += f"  +DI: {result['indicators']['plus_di']:.2f}\n"
         summary += f"  -DI: {result['indicators']['minus_di']:.2f}\n"
         summary += f"{'='*60}\n"

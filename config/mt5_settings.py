@@ -56,8 +56,8 @@ CSM_NORMALIZATION_THRESHOLD = 0.001  # Min range for normalization
 # ═══════════════════════════════════════════════════════════════════════════════
 REGIME_CHECK_HOURS = 4             # Check regime every 4 hours
 TRENDING_THRESHOLD_PERCENT = 55    # >= 55% trending score = TRENDING
-RANGING_THRESHOLD_PERCENT = 40     # <= 40% trending score = RANGING
-# Between 40-55% = TRANSITIONAL
+RANGING_THRESHOLD_PERCENT = 55     # >= 55% ranging score = RANGING (mirror threshold)
+# If scores within CLOSE_SCORES_THRESHOLD (5%) = TRANSITIONAL
 
 # Regime Detection Indicators
 MIN_ADX_FOR_TRENDING = 30.0        # ADX must be >= 30 for strong trend
@@ -65,6 +65,22 @@ MIN_EMA_SEPARATION = 0.40          # Min EMA separation (%)
 REGIME_ADX_PERIOD = 14             # ADX calculation period
 REGIME_EMA_FAST = 20               # Fast EMA period
 REGIME_EMA_SLOW = 50               # Slow EMA period
+
+# ATR Volatility Settings (Regime Detection)
+ATR_LOOKBACK_BARS = 48             # 48 M15 bars = 12 hours (2 days)
+ATR_EXPANDING_THRESHOLD = 1.2      # Ratio >= 1.2 = trending
+ATR_CONTRACTING_THRESHOLD = 0.8    # Ratio <= 0.8 = ranging
+
+# Price Action Settings (Regime Detection)
+PRICE_ACTION_LOOKBACK = 10         # Analyze last 10 bars
+STRONG_BODY_THRESHOLD = 0.6        # Body/Range ratio > 0.6 = strong trending
+WEAK_BODY_THRESHOLD = 0.3          # Body/Range ratio < 0.3 = ranging
+
+# Close Scores Threshold (Competitive Scoring)
+CLOSE_SCORES_THRESHOLD = 5.0       # If scores within 5%, mark TRANSITIONAL
+
+# Regime Detection Logging
+VERBOSE_REGIME_LOGGING = False     # Enable detailed component logging (for MT5 validation)
 
 # Dynamic Regime Detection (Phase 4E)
 USE_DYNAMIC_REGIME = True          # Enable dynamic regime re-evaluation

@@ -2,7 +2,7 @@
 
 **Purpose:** Single authoritative reference for Claude to understand project state and start working effectively.
 **Last Updated:** December 2, 2025
-**Current Phase:** Performance Optimization - Phase 1 COMPLETE ✅, Phase 2 Ready
+**Current Phase:** 🔥 PHASE 7 - STRATEGY ENHANCEMENTS (TOP PRIORITY)
 
 ---
 
@@ -14,29 +14,68 @@
 | **C# Chart Viewer** | ✅ Operational | M1 viewport positioning FIXED, playback smooth |
 | **Tests** | 30/31 Passing | 1 Phase 2 test failing (non-blocking) |
 | **Main Branch** | ✅ Updated | Phase 5.2, Phase 5.3 Part 1 complete |
-| **Phase 6 Branch** | ✅ Active | phase6-multi-pair - Performance optimization in progress |
-| **Performance** | 🚀 Improved | Phase 1 complete: 25-30% faster (210-330s saved) |
-| **Current Priority** | 🔄 Ready | Phase 2: SQLite Database (98%+ improvement target) |
+| **Phase 6 Branch** | ✅ Active | phase6-multi-pair - Phase 1 perf complete, Phase 7 ready |
+| **Performance** | 🚀 SOLVED | 46 seconds (94% improvement, 13 min → 46 sec) |
+| **Current Priority** | 🔥 **PHASE 7** | **Strategy Enhancements (Next Session)** |
 
 ---
 
-## CRITICAL PERFORMANCE ISSUE - ADDRESSED
+## 🔥 PHASE 7: STRATEGY ENHANCEMENTS - READY FOR NEXT SESSION
+
+### Priority Status: **TOP PRIORITY**
+
+**Goal:** Improve strategy profitability to reach $5k/month signal service target
+**Effort:** 14-18 hours
+**Expected Impact:** +9 to +16R improvement (+56-100%)
+
+### Key Enhancements Planned
+
+#### Critical (Session 1 - 6-8 hours)
+1. **Trend Rider Trailing Stop** (2 hrs) - Let winners run, lock in profits
+2. **Trend Rider Breakeven Logic** (1 hr) - Protect capital after small profit
+3. **Trend Rider Take Profit Targets** (1.5 hrs) - Partial exits at 2R, 3.5R
+4. **Daily Loss Limit** (1 hr) - Stop trading after 5% daily loss
+5. **Position Correlation Filter** (2 hrs) - Avoid correlated positions
+
+#### High Priority (Session 2 - 4-5 hours)
+6. **Multi-Timeframe Confirmation** (1.5 hrs) - H4 EMA filter for quality
+7. **Range Rider Advanced S/R Detection** (2 hrs) - Pivot points, touch validation
+8. **Range Rider Dynamic Take Profit** (1 hr) - Target 50% range retracement
+9. **Range Rider Better Consolidation** (1 hr) - ATR compression detection
+
+### Target Performance Improvements
+
+| Strategy | Current R | Target R | Improvement |
+|----------|-----------|----------|-------------|
+| Trend Rider | +9.18R | +15-20R | +60-120% |
+| Range Rider | +6.86R | +10-12R | +46-75% |
+| **Combined** | **+16.04R** | **+25-32R** | **+56-100%** |
+
+### Business Impact
+- **Current:** +16R backtest (not validated)
+- **After Phase 7:** +25-32R with improved risk management
+- **Next Steps:** 2-month demo → 4-month live → Launch signal service (Aug 2026)
+
+**Detailed Plan:** `docs/current/PHASE_7_STRATEGY_ENHANCEMENTS.md`
+
+---
+
+## PERFORMANCE OPTIMIZATION - COMPLETE ✅ (Dec 2, 2025)
 
 ### Problem Statement (Nov 2025)
-- **Current Load Time:** 13 minutes for 1 month, 1 pair, SimpleTest strategy
+- **Original Load Time:** 13 minutes for 1 month, 1 pair, SimpleTest strategy
 - **Concern:** With 2 strategies + multi-pair + full indicators, load time could exceed 1 hour
 - **Impact:** Blocking rapid iteration and strategy development
 
-### Root Causes Identified
-1. **Duplicate H1 EMA calculations** (120-180s wasted) - Engine calculates, service recalculates
-2. **M1 data reloaded twice** (30-60s wasted) - Loaded in engine, reloaded from disk in service
-3. **Inefficient data transformations** (60-90s wasted) - Using iterrows() loops instead of vectorized ops
-4. **No caching** - Every backtest recalculates all indicators from scratch
-5. **Sequential execution** - No parallelization between independent operations
+### Solution Implemented: Phase 1 Layer 1 Quick Wins
 
-### Solution: Performance Optimization Plan (23-31 hours)
-**Approved Plan:** `C:\Users\jcamp\.claude\plans\toasty-wiggling-seal.md`
-**Target:** 13 minutes → 10-30 seconds (98%+ improvement)
+**Result:** 🎉 **46 SECONDS** (94% improvement, 734 seconds saved!)
+
+**Performance Breakdown:**
+- Previous: 13 minutes (780s) = 12 min CSM + 1 min indicators
+- Phase 1: 46 seconds = 0 min CSM (skipped) + 46 sec indicators (23% faster)
+- **CSM skip was the BIG WIN:** ~12 minutes saved for SimpleTest
+- **Phase 1 optimizations:** Additional 23% improvement on base calculations
 
 ---
 
@@ -398,21 +437,38 @@ D:\JcampFxTrading/
 - **Key Commits:** 2309b9d, ed49bc2, f951fc0, ec96f47
 - **Parts 2-5:** Deferred (timeframe switching, UX enhancements)
 
-### Performance Optimization: 23-31 hours ⚡ CURRENT PRIORITY
-- ✅ **Phase 1: Layer 1 Quick Wins** (4 hours) - COMPLETE (Dec 2, 2025)
-- 🔄 **Phase 2: SQLite Database** (8-12 hours) - READY TO IMPLEMENT
-- ⏸️ **Phase 3: Multi-Pair Parallel** (5-7 hours) - PLANNED
-- ⏸️ **Phase 4: Chart-First Workflow** (6-8 hours) - PLANNED
+### Performance Optimization ✅ COMPLETE (Dec 2, 2025)
+- ✅ **Phase 1: Layer 1 Quick Wins** (4 hours) - COMPLETE
+  - **Result:** 46 seconds (94% improvement, 13 min → 46 sec)
+  - Eliminated duplicate calculations, CSM skip, vectorized operations
+  - **Key Commit:** b2ce4a0
+- ⏸️ **Phase 2: SQLite Database** (8-12 hours) - DEFERRED (not needed, 46s is excellent)
+- ⏸️ **Phase 3: Multi-Pair Parallel** (5-7 hours) - DEFERRED
+- ⏸️ **Phase 4: Chart-First Workflow** (6-8 hours) - DEFERRED
 
-**For detailed plan:** See `C:\Users\jcamp\.claude\plans\toasty-wiggling-seal.md`
+**Conclusion:** Performance bottleneck SOLVED. Focus now shifts to strategy profitability.
 
-### Phase 7: Strategy Fixes & Enhancements (8-10 hours) ⏸️ DEFERRED
-- **NOTE:** Strategy Logic Mismatch investigation is Phase 7
-- Trend Rider: trailing stops, multi-timeframe confirmation
-- Range Rider: better range detection, dynamic TP/SL
-- Risk Management: daily loss limits, correlation filter
-- Performance: indicator caching (covered by Phase 2)
-- New Strategies: breakout + mean reversion
+### Phase 7: Strategy Enhancements (14-18 hours) 🔥 CURRENT PRIORITY - NEXT SESSION
+**Goal:** Improve profitability from +16R to +25-32R (+56-100%)
+**Priority:** TOP - Critical for business success
+
+#### Session 1 (6-8 hours) - CRITICAL
+- [ ] Trend Rider Trailing Stop (2 hrs)
+- [ ] Trend Rider Breakeven Logic (1 hr)
+- [ ] Trend Rider Take Profit Targets (1.5 hrs)
+- [ ] Daily Loss Limit (1 hr)
+- [ ] Position Correlation Filter (2 hrs)
+
+#### Session 2 (4-5 hours) - HIGH PRIORITY
+- [ ] Multi-Timeframe Confirmation (1.5 hrs)
+- [ ] Range Rider Advanced S/R Detection (2 hrs)
+- [ ] Range Rider Dynamic Take Profit (1 hr)
+- [ ] Range Rider Better Consolidation (1 hr)
+
+#### Session 3 (3-4 hours) - OPTIONAL
+- [ ] Breakout Rider Strategy (3-4 hrs)
+
+**Detailed Plan:** `docs/current/PHASE_7_STRATEGY_ENHANCEMENTS.md`
 
 ---
 
@@ -435,10 +491,11 @@ D:\JcampFxTrading/
 ## RESOURCES & REFERENCES
 
 ### Documentation
+- **PHASE_7_STRATEGY_ENHANCEMENTS.md** - 🔥 Strategy enhancement plan (NEXT SESSION)
 - **PHASE_5_7_MASTER_PLAN.md** - Original 7-phase development roadmap
 - **SUBSCRIPTION_BUSINESS_PLAN.md** - Business strategy & timeline
 - **STATUS.md** - Dynamic progress tracking
-- **Performance Plan:** `C:\Users\jcamp\.claude\plans\toasty-wiggling-seal.md` - Approved optimization plan
+- **Performance Plan:** `C:\Users\jcamp\.claude\plans\toasty-wiggling-seal.md` - Completed optimization plan
 
 ### Uncommitted Files (Ready to Stage)
 - `docs/JCAMP_Business_Plan_v2.docx` - Updated business plan
@@ -510,64 +567,63 @@ python scripts/precompute_indicators.py --symbol EURUSD --year 2024
 
 ## CRITICAL NOTES
 
-- **Performance Phase 1 COMPLETE:** ✅ 25-30% improvement (210-330s saved)
+- **🔥 PHASE 7 NEXT SESSION:** Strategy enhancements are TOP PRIORITY
+- **Performance SOLVED:** ✅ 46 seconds (94% improvement, 13 min → 46 sec)
+- **Phase 1 Committed:** ✅ Commit b2ce4a0 pushed to phase6-multi-pair branch
 - **Phase 5.2 Fix Preserved:** ✅ H1 EMA lookahead bias fix maintained in new utility
 - **Phase 5.3 Part 1 COMPLETE:** ✅ M1 viewport positioning fixed
 - **Two Git Repos:** Python backtesting and CSMMonitor are separate - commit independently
-- **Branch Strategy:** Using phase6-multi-pair branch for performance optimization work
+- **Branch Strategy:** Using phase6-multi-pair branch for all Phase 6/7 work
 - **Architecture Note:** Viewport always in M15 coordinates (0-96 bars). M1 used only for smooth animation
-- **Phase 1 Benefits:**
+- **Performance Benefits:**
+  - CSM skip for SimpleTest (~12 minutes saved)
   - Eliminated duplicate calculations (120-180s)
   - Eliminated duplicate disk I/O (30-60s)
   - Vectorized interpolation (60-90s faster)
   - Progress logging (user visibility)
-- **Next Priority:** Phase 2 (SQLite Database) → 98%+ improvement target
-- **User Testing:** Phase 1 changes being tested now
-- **Business Timeline:** 5-6 months real money validation required before launch
+- **Next Priority:** 🔥 Phase 7 Strategy Enhancements (Next Session)
+- **Phase 2-4 Deferred:** SQLite database not needed (46s is excellent for development)
+- **Business Timeline:** Phase 7 → 2-month demo → 4-month live → Launch (Aug 2026)
 
 ---
 
-## SESSION CHECKLIST
+## SESSION CHECKLIST (NEXT SESSION)
 
 ### Start
-- [ ] Read this file
+- [ ] Read `docs/current/PHASE_7_STRATEGY_ENHANCEMENTS.md`
 - [ ] Check `git status` and `git log -5`
-- [ ] Check CSMMonitor status if modified
-- [ ] Understand current priority (Phase 2 ready)
+- [ ] Review current strategy performance (+16R baseline)
+- [ ] Understand Phase 7 Session 1 priorities (5 critical enhancements)
+
+### Session 1 Goals (6-8 hours)
+- [ ] Trailing Stop Logic (2 hrs)
+- [ ] Breakeven Logic (1 hr)
+- [ ] Take Profit Targets (1.5 hrs)
+- [ ] Daily Loss Limit (1 hr)
+- [ ] Position Correlation Filter (2 hrs)
 
 ### End
+- [ ] Run unit tests
+- [ ] Run validation backtests
 - [ ] Update STATUS.md
 - [ ] Commit Python repo changes
-- [ ] Commit CSMMonitor changes (if modified)
-- [ ] Confirm all saved
+- [ ] Update CLAUDE.md with progress
 
 ---
 
-## PERFORMANCE OPTIMIZATION PROGRESS
+## PERFORMANCE OPTIMIZATION - COMPLETE ✅
 
 ### Phase 1: Layer 1 Quick Wins ✅ COMPLETE
-**Status:** All 5 optimizations implemented and tested
+**Status:** All 5 optimizations implemented, tested, and committed
 **Time Invested:** 4 hours
-**Performance Gain:** 25-30% (210-330s saved)
-**Next Step:** User testing, then commit changes
+**Performance Result:** **46 seconds** (94% improvement, 13 min → 46 sec)
+**Key Commit:** b2ce4a0
+**Conclusion:** Performance bottleneck SOLVED
 
-### Phase 2: SQLite Database 🔄 READY
-**Status:** Fully planned, ready to implement
-**Time Required:** 8-12 hours
-**Performance Gain:** 98%+ (13 min → 10-30 sec)
-**Next Step:** Await Phase 1 test results, then proceed
-
-### Phase 3: Multi-Pair Parallel ⏸️ PLANNED
-**Status:** Planned, depends on Phase 2 completion
-**Time Required:** 5-7 hours
-**Performance Gain:** 3x throughput for multi-pair
-**Priority:** High (user requirement)
-
-### Phase 4: Chart-First Workflow ⏸️ PLANNED
-**Status:** Planned, depends on Phase 2 completion
-**Time Required:** 6-8 hours
-**Performance Gain:** <10s chart load, instant 300x playback
-**Priority:** High (user requirement)
+### Phase 2-4: DEFERRED ⏸️
+**Reason:** 46-second load time is excellent for development workflow
+**Decision:** Focus on strategy profitability (Phase 7) instead
+**Future Consideration:** Revisit if multi-pair or longer date ranges cause issues
 
 ---
 

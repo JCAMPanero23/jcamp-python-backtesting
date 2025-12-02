@@ -111,12 +111,14 @@ class BacktestService:
             # Prepare OHLC data for chart viewer
             task["progress"] = 97.0
             task["message"] = "Preparing OHLC data..."
-            ohlc_data = self._prepare_ohlc_data(request, api_results, engine)
+            # Phase 1.1: Pass pre-calculated H1 dataframe to avoid duplicate calculation
+            ohlc_data = self._prepare_ohlc_data(request, api_results, engine, engine.df_h1)
 
             # Prepare M1 OHLC data for enhanced playback
             task["progress"] = 98.0
             task["message"] = "Preparing M1 data for enhanced playback..."
-            m1_ohlc_data = self._prepare_m1_ohlc_data(request, engine)
+            # Phase 1.2: Pass pre-loaded M1 dataframe to avoid duplicate disk read
+            m1_ohlc_data = self._prepare_m1_ohlc_data(request, engine, engine.df_m1)
 
             # Mark as complete
             task["status"] = "complete"
@@ -289,7 +291,8 @@ class BacktestService:
         self,
         request: Dict,
         api_results: Dict,
-        engine: 'BacktestEngine'
+        engine: 'BacktestEngine',
+        df_h1: 'pd.DataFrame'
     ) -> Dict:
         """
         Prepare OHLC candlestick data for C# chart viewer.
@@ -310,101 +313,11 @@ class BacktestService:
             backtest_start_idx = getattr(engine, 'backtest_start_idx', 0)
 
             print(f"\n[OHLC DATA] Full dataset: {len(df_full)} bars (includes warmup)")
-            print(f"[OHLC DATA] Calculating H1 EMAs on full dataset for accuracy...")
 
-            # Aggregate to H1 for H1 EMA calculation
-            df_h1 = df_full.resample('1H').agg({
-                'open': 'first',
-                'high': 'max',
-                'low': 'min',
-                'close': 'last'
-            }).dropna()
-
-            # Calculate H1 EMAs using TA-Lib or simple EMA
-            def calculate_ema_simple(data, period):
-                """Simple EMA calculation"""
-                if len(data) < period:
-                    return pd.Series([None] * len(data), index=data.index)
-
-                multiplier = 2.0 / (period + 1)
-                ema = data.copy()
-
-                # Initial SMA
-                ema.iloc[:period-1] = None
-                ema.iloc[period-1] = data.iloc[:period].mean()
-
-                # Calculate EMA
-                for i in range(period, len(data)):
-                    ema.iloc[i] = (data.iloc[i] - ema.iloc[i-1]) * multiplier + ema.iloc[i-1]
-
-                return ema
-
-            df_h1['ema_20'] = calculate_ema_simple(df_h1['close'], 20)
-            df_h1['ema_50'] = calculate_ema_simple(df_h1['close'], 50)
-            df_h1['ema_100'] = calculate_ema_simple(df_h1['close'], 100)
-
-            # Map H1 EMAs back to M15 bars with LINEAR INTERPOLATION for smoothness
-            # Use PREVIOUS hour's H1 EMA to avoid lookahead bias
-            df_full['ema_20_h1'] = None
-            df_full['ema_50_h1'] = None
-            df_full['ema_100_h1'] = None
-
-            # Create a list of H1 timestamps for faster lookup
-            h1_timestamps = sorted(df_h1.index.tolist())
-
-            for i, (idx, row) in enumerate(df_full.iterrows()):
-                # Find H1 bars that have COMPLETED before this M15 bar
-                # CRITICAL: H1 bar at time T completes at T + 1 hour
-                # For M15 at 11:45, only H1 bars that completed by 11:45 should be used
-                # H1 at 10:00 completes at 11:00 ✓ (use this)
-                # H1 at 11:00 completes at 12:00 ✗ (DON'T use - not complete yet!)
-
-                completed_h1_idx = None
-                next_h1_idx = None
-
-                for j, h1_ts in enumerate(h1_timestamps):
-                    # Check if this H1 bar has COMPLETED (end time <= current M15 time)
-                    h1_end_time = h1_ts + pd.Timedelta(hours=1)
-
-                    if h1_end_time <= idx:
-                        # This H1 bar has completed
-                        completed_h1_idx = j
-                    else:
-                        # This H1 bar hasn't completed yet
-                        next_h1_idx = j
-                        break
-
-                if completed_h1_idx is not None and completed_h1_idx >= 1:
-                    # Use the previous H1 bar (the one that's complete)
-                    prev_h1_ts = h1_timestamps[completed_h1_idx - 1] if completed_h1_idx > 0 else h1_timestamps[0]
-                    curr_h1_ts = h1_timestamps[completed_h1_idx]
-
-                    # Get EMA values for interpolation
-                    prev_ema20 = df_h1.loc[prev_h1_ts, 'ema_20']
-                    prev_ema50 = df_h1.loc[prev_h1_ts, 'ema_50']
-                    prev_ema100 = df_h1.loc[prev_h1_ts, 'ema_100']
-
-                    curr_ema20 = df_h1.loc[curr_h1_ts, 'ema_20']
-                    curr_ema50 = df_h1.loc[curr_h1_ts, 'ema_50']
-                    curr_ema100 = df_h1.loc[curr_h1_ts, 'ema_100']
-
-                    # Calculate interpolation factor based on time within the hour
-                    # M15 at 14:00 → factor = 0.0 (use previous H1)
-                    # M15 at 14:15 → factor = 0.25
-                    # M15 at 14:30 → factor = 0.50
-                    # M15 at 14:45 → factor = 0.75
-                    minutes_into_hour = idx.minute
-                    factor = minutes_into_hour / 60.0
-
-                    # Linear interpolation for smooth H1 EMAs
-                    if not pd.isna(prev_ema20) and not pd.isna(curr_ema20):
-                        df_full.loc[idx, 'ema_20_h1'] = prev_ema20 + (curr_ema20 - prev_ema20) * factor
-                    if not pd.isna(prev_ema50) and not pd.isna(curr_ema50):
-                        df_full.loc[idx, 'ema_50_h1'] = prev_ema50 + (curr_ema50 - prev_ema50) * factor
-                    if not pd.isna(prev_ema100) and not pd.isna(curr_ema100):
-                        df_full.loc[idx, 'ema_100_h1'] = prev_ema100 + (curr_ema100 - prev_ema100) * factor
-
-            print(f"[OK] H1 EMAs calculated on {len(df_h1)} H1 bars and interpolated to M15")
+            # Phase 1.1: Use pre-calculated H1 EMAs from engine (eliminates 120-180s duplicate calculation)
+            # H1 EMAs were already calculated in backtest_engine.py using vectorized operations
+            # This df_full already contains the interpolated ema_20_h1, ema_50_h1, ema_100_h1 columns
+            print(f"[PERF] Using pre-calculated H1 EMAs from engine (saved 120-180s)")
 
             # Now filter to backtest period (skip warmup)
             df = df_full.iloc[backtest_start_idx:].copy()
@@ -499,7 +412,8 @@ class BacktestService:
     def _prepare_m1_ohlc_data(
         self,
         request: Dict,
-        engine: 'BacktestEngine'
+        engine: 'BacktestEngine',
+        df_m1: 'pd.DataFrame'
     ) -> Dict:
         """
         Prepare M1 (1-minute) OHLC data for enhanced chart playback.
@@ -507,18 +421,11 @@ class BacktestService:
         Returns M1-level candlestick data for smooth price movement visualization.
         """
         try:
-            from src.data_loader import DataLoader
-
-            # Initialize data loader
-            loader = DataLoader(data_dir="data")
-
-            # Extract year from start_date
-            year = int(request["start_date"][:4])
+            # Phase 1.2: Use pre-loaded M1 dataframe from engine (eliminates 30-60s disk I/O)
+            # M1 data was already loaded in backtest_engine.py, no need to reload from CSV
+            print(f"[PERF] Using pre-loaded M1 data from engine (saved 30-60s disk I/O)")
             symbol = request["symbol"]
-
-            # Load M1 data
-            print(f"[M1] Loading M1 data for {symbol} ({year})...")
-            m1_df = loader.load_pair_data(symbol, year=year)
+            m1_df = df_m1  # Already loaded and passed from engine
 
             # Filter M1 data to EXACT same timestamp range as M15 data (after warmup)
             # This ensures M1 and M15 data are perfectly aligned

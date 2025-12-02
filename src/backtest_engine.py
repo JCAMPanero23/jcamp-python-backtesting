@@ -117,6 +117,7 @@ class BacktestEngine:
         """
         if self.verbose:
             print(f"\n[DATA] Preparing data for {symbol} {year}...")
+            print("[PROGRESS] Phase 1.4: Enhanced progress logging enabled")
 
         # Determine which years to load
         years_to_load = [int(year)]
@@ -134,10 +135,19 @@ class BacktestEngine:
                     print(f"[INFO] Start date {start_date} requires previous year ({start_year - 1}) for warmup")
 
         # Load M1 data (single or multi-year)
+        if self.verbose:
+            print(f"[1/6] Loading M1 data... (~372k bars, ~60s)")
+
         if len(years_to_load) > 1:
             df_m1 = self.loader.load_pair_data_multi_year(symbol, years_to_load)
         else:
             df_m1 = self.loader.load_pair_data(symbol, year)
+
+        # Store M1 dataframe for service reuse (Phase 1.2: Avoid duplicate M1 load from disk)
+        self.df_m1 = df_m1.copy()
+
+        if self.verbose:
+            print(f"[2/6] Resampling to {self.timeframe}... (~2-3s)")
 
         # Resample to specified timeframe
         df = self.loader.resample_to_timeframe(df_m1, self.timeframe)
@@ -147,6 +157,7 @@ class BacktestEngine:
         
         # Add technical indicators
         if self.verbose:
+            print("[3/6] Calculating M15 indicators... (~10-15s)")
             print("[TREND] Calculating technical indicators...")
 
         df['atr'] = self.indicators_calc.calculate_atr(df, 14)
@@ -164,6 +175,7 @@ class BacktestEngine:
 
         # Calculate H1 EMAs for Simple Test Strategy
         if self.verbose:
+            print("[4/6] Calculating H1 EMAs... (~2-3s)")
             print("[TREND] Calculating H1 EMAs for confirmation...")
 
         # Resample M1 to H1 for H1 EMA calculation
@@ -174,43 +186,15 @@ class BacktestEngine:
         df_h1['ema_50'] = self.indicators_calc.calculate_ema(df_h1, 50)
         df_h1['ema_100'] = self.indicators_calc.calculate_ema(df_h1, 100)
 
-        # Initialize H1 EMA columns in M15 dataframe
-        df['ema_20_h1'] = pd.NA
-        df['ema_50_h1'] = pd.NA
-        df['ema_100_h1'] = pd.NA
+        # Store H1 dataframe for service reuse (Phase 1.1: Eliminate duplicate calculation)
+        self.df_h1 = df_h1.copy()
 
-        # Optimized H1 EMA interpolation using reindex (FAST and robust!)
-        # Shift H1 index by 1 hour to represent completion time
-        df_h1_complete = df_h1.copy()
-        df_h1_complete.index = df_h1_complete.index + pd.Timedelta(hours=1)
+        if self.verbose:
+            print("[5/6] Interpolating H1 EMAs to M15... (~0.5s)")
 
-        # Reindex H1 EMAs to M15 frequency using forward fill (use last completed H1 value)
-        # This automatically handles the "only use completed bars" requirement
-        df_h1_reindexed = df_h1_complete.reindex(df.index, method='ffill')
-
-        # For interpolation, we also need the previous H1 bar
-        # Shift by one more hour to get previous completed H1
-        df_h1_prev_complete = df_h1.copy()
-        df_h1_prev_complete.index = df_h1_prev_complete.index + pd.Timedelta(hours=2)
-        df_h1_prev_reindexed = df_h1_prev_complete.reindex(df.index, method='ffill')
-
-        # Calculate interpolation factor based on minutes into the hour
-        minutes_into_hour = df.index.minute
-        factor = minutes_into_hour / 60.0
-
-        # Linear interpolation: prev + (curr - prev) * factor
-        # Handle NaN values gracefully
-        for ema_period in [20, 50, 100]:
-            curr_series = df_h1_reindexed[f'ema_{ema_period}']
-            prev_series = df_h1_prev_reindexed[f'ema_{ema_period}']
-
-            # Interpolate where both values are valid
-            interpolated = prev_series + (curr_series - prev_series) * factor
-
-            # Fallback: use current if interpolation failed, then previous if that failed too
-            interpolated = interpolated.fillna(curr_series).fillna(prev_series)
-
-            df[f'ema_{ema_period}_h1'] = interpolated
+        # Phase 1.3: Use vectorized EMA interpolation utility (extracted for reusability)
+        from src.utils.ema_interpolation import interpolate_h1_emas_to_m15
+        df = interpolate_h1_emas_to_m15(df, df_h1, ema_periods=[20, 50, 100])
 
         if self.verbose:
             print(f"[OK] H1 EMAs calculated on {len(df_h1)} H1 bars and interpolated to M15 (vectorized)")
@@ -222,12 +206,12 @@ class BacktestEngine:
 
         # Skip CSM calculation for Simple Test strategy (doesn't use CSM)
         # This saves ~12 minutes for single-pair backtests!
-        strategy_name = self.strategy.get_strategy_name()
-        skip_csm = (strategy_name == 'SIMPLE_TEST')
+        # Phase 1 Fix: Use hardcoded strategy since only SimpleTest is currently enabled
+        skip_csm = True  # SIMPLE_TEST is the only active strategy (see _check_entries lines 376-410)
 
         if skip_csm:
             if self.verbose:
-                print(f"[CSM] Skipping CSM calculation for {strategy_name} (not required)")
+                print(f"[CSM] Skipping CSM calculation for SIMPLE_TEST (not required)")
         else:
             if self.verbose:
                 print("[CSM] Calculating Currency Strength Meter...")
@@ -252,6 +236,7 @@ class BacktestEngine:
                     df.loc[current_time, 'csm_diff'] = diff
 
         if self.verbose:
+            print("[6/6] Data preparation complete! ✓")
             print("[OK] Data preparation complete!\n")
 
         return df

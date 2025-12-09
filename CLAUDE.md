@@ -1,8 +1,8 @@
 # CLAUDE.md - JCAMP Forex Trading System Context
 
 **Purpose:** Single authoritative reference for Claude to understand project state and start working effectively.
-**Last Updated:** December 3, 2025
-**Current Phase:** 🔥 PHASE 7 - REGIME DETECTION COMPLETE, STRATEGY ENHANCEMENTS NEXT
+**Last Updated:** December 9, 2025
+**Current Phase:** 📋 INDICATOR VALIDATION (2-3 hours) → PHASE 7 STRATEGY ENHANCEMENTS
 
 ---
 
@@ -13,11 +13,12 @@
 | **Python Backend** | ✅ Operational | FastAPI on port 8000 |
 | **C# Chart Viewer** | ✅ Operational | M1 viewport positioning FIXED, playback smooth |
 | **Tests** | 30/31 Passing | 1 Phase 2 test failing (non-blocking) |
-| **Main Branch** | ✅ Updated | Phase 5.2, Phase 5.3 Part 1 complete |
-| **Phase 6 Branch** | ✅ Active | phase6-multi-pair - Phase 1 perf complete, Phase 7 ready |
+| **Main Branch** | ✅ Updated | Phase 5.2, Phase 5.3 Part 1, Regime Detection complete |
+| **Phase 6 Branch** | ✅ Active | phase6-multi-pair - Performance + Regime Detection complete |
 | **Performance** | 🚀 SOLVED | 46 seconds (94% improvement, 13 min → 46 sec) |
 | **Regime Detection** | ✅ ENHANCED | MT5-inspired components (ATR, Price Action, Competitive Scoring) |
-| **Current Priority** | 🔥 **PHASE 7** | **Strategy Enhancements (Next Session)** |
+| **Indicators** | 📋 **PENDING** | **Validation vs MT5 EA (Next Session)** |
+| **Current Priority** | 📋 **INDICATOR VALIDATION** | **Verify Python indicators match MT5 EA exactly** |
 
 ---
 
@@ -186,13 +187,47 @@ Timestamp: 2025-12-03 01:28:50
 ### Next Steps
 
 1. ✅ **Regime Detection Complete** - All enhancements implemented and tested
-2. **Run Full Backtest** - Validate impact on strategy performance
-3. **Compare A/B Test** - Old vs new regime detection
-4. **Phase 7 Strategy Enhancements** - Proceed to trailing stops, breakeven, take profit targets
+2. 📋 **Indicator Validation** - Verify Python indicators match MT5 EA (NEXT SESSION)
+3. ✅ **Phase 7 Strategy Enhancements** - Proceed after indicator validation
 
 ---
 
-## 🔥 PHASE 7: STRATEGY ENHANCEMENTS - READY FOR NEXT SESSION
+## 📋 INDICATOR VALIDATION - PLANNED FOR NEXT SESSION (Dec 9, 2025)
+
+### Status: PLAN CREATED, READY FOR IMPLEMENTATION
+
+**Goal:** Verify Python indicator calculations match MT5 EA exactly before C# strategy migration
+
+**Reference:** `D:\JcampFxTrading\Jcamp_BacktestEA.mq5` v1.96
+
+**Indicators to Validate:**
+- **ATR(14)** - Stop Loss calculation (±0.00001 tolerance)
+- **EMA(20, 50, 100)** - Trend direction (±0.00001 tolerance)
+- **ADX(14)** - Trend strength (±0.1 tolerance)
+- **+DI/-DI(14)** - Trend direction components (±0.1 tolerance)
+- **RSI(14)** - Entry filter (±0.1 tolerance)
+
+**Validation Approach:**
+1. Modify MT5 EA to log indicator values
+2. Create test suite comparing Python vs MT5 calculations
+3. Add RSI calculation to indicators.py
+4. Validate on EURUSD H1 data (2024-12-01 to 2024-12-07)
+5. Document findings and update CLAUDE.md
+
+**Effort:** 2-3 hours total
+
+**Files to Create:**
+- `tests/test_indicator_accuracy.py` (NEW) - 200-250 LOC
+- `tests/fixtures/mt5_reference_data.csv` (NEW) - MT5 export data
+
+**Files to Modify:**
+- `src/indicators.py` - Add `calculate_rsi()` method (50 LOC)
+
+**Plan Location:** `C:\Users\jcamp\.claude\plans\idempotent-floating-fiddle.md`
+
+---
+
+## 🔥 PHASE 7: STRATEGY ENHANCEMENTS - READY AFTER INDICATOR VALIDATION
 
 ### Priority Status: **TOP PRIORITY**
 
@@ -620,9 +655,28 @@ D:\JcampFxTrading/
 
 **Conclusion:** Performance bottleneck SOLVED. Focus now shifts to strategy profitability.
 
-### Phase 7: Strategy Enhancements (14-18 hours) 🔥 CURRENT PRIORITY - NEXT SESSION
+### Regime Detection Enhancements ✅ COMPLETE (Dec 3, 2025)
+- [x] ATR Volatility component (replaces DI Movement)
+- [x] Price Action analysis (replaces Price vs EMA)
+- [x] Competitive scoring system (trending% vs ranging%)
+- [x] MT5 validation logging (detailed component breakdown)
+- **Result:** More accurate regime classification for better strategy filtering
+
+### Indicator Validation 📋 PLANNED (Dec 9, 2025)
+**Goal:** Verify Python indicators match MT5 EA exactly before C# migration
+**Status:** Plan created, ready for implementation
+**Effort:** 2-3 hours
+**Approach:**
+- Modify MT5 EA to log indicator values
+- Create test suite comparing Python vs MT5 calculations
+- Add RSI calculation to indicators.py
+- Validate on EURUSD H1 (2024-12-01 to 2024-12-07)
+**Plan:** `C:\Users\jcamp\.claude\plans\idempotent-floating-fiddle.md`
+
+### Phase 7: Strategy Enhancements (14-18 hours) 🔥 READY AFTER INDICATOR VALIDATION
 **Goal:** Improve profitability from +16R to +25-32R (+56-100%)
 **Priority:** TOP - Critical for business success
+**Status:** Plan complete, ready after indicator validation
 
 #### Session 1 (6-8 hours) - CRITICAL
 - [ ] Trend Rider Trailing Stop (2 hrs)
@@ -739,13 +793,24 @@ python scripts/precompute_indicators.py --symbol EURUSD --year 2024
 
 ## CRITICAL NOTES
 
-- **🔥 PHASE 7 NEXT SESSION:** Strategy enhancements are TOP PRIORITY
+- **📋 INDICATOR VALIDATION NEXT:** Verify Python indicators match MT5 EA (2-3 hours)
+  - Reference: `Jcamp_BacktestEA.mq5` v1.96
+  - Indicators: ATR(14), EMA(20/50/100), ADX(14), RSI(14), +DI/-DI
+  - Plan: `C:\Users\jcamp\.claude\plans\idempotent-floating-fiddle.md`
+  - Status: Ready for implementation
+
+- **🔥 PHASE 7 AFTER VALIDATION:** Strategy enhancements are TOP PRIORITY
+  - Goal: +16R → +25-32R (+56-100%)
+  - Effort: 14-18 hours across 3 sessions
+  - Plan: `docs/current/PHASE_7_STRATEGY_ENHANCEMENTS.md`
+
 - **Performance SOLVED:** ✅ 46 seconds (94% improvement, 13 min → 46 sec)
-- **Phase 1 Committed:** ✅ Commit b2ce4a0 pushed to phase6-multi-pair branch
-- **Phase 5.2 Fix Preserved:** ✅ H1 EMA lookahead bias fix maintained in new utility
+- **Phase 5.2 Fix Preserved:** ✅ H1 EMA lookahead bias fix maintained
 - **Phase 5.3 Part 1 COMPLETE:** ✅ M1 viewport positioning fixed
+- **Regime Detection COMPLETE:** ✅ MT5-inspired components (ATR, Price Action, Competitive Scoring)
+
 - **Two Git Repos:** Python backtesting and CSMMonitor are separate - commit independently
-- **Branch Strategy:** Using phase6-multi-pair branch for all Phase 6/7 work
+- **Branch Strategy:** Main updated → phase6-multi-pair for all current work
 - **Architecture Note:** Viewport always in M15 coordinates (0-96 bars). M1 used only for smooth animation
 - **Performance Benefits:**
   - CSM skip for SimpleTest (~12 minutes saved)
@@ -753,9 +818,8 @@ python scripts/precompute_indicators.py --symbol EURUSD --year 2024
   - Eliminated duplicate disk I/O (30-60s)
   - Vectorized interpolation (60-90s faster)
   - Progress logging (user visibility)
-- **Next Priority:** 🔥 Phase 7 Strategy Enhancements (Next Session)
 - **Phase 2-4 Deferred:** SQLite database not needed (46s is excellent for development)
-- **Business Timeline:** Phase 7 → 2-month demo → 4-month live → Launch (Aug 2026)
+- **Business Timeline:** Indicator validation → Phase 7 → 2-month demo → 4-month live → Launch (Aug 2026)
 
 ---
 

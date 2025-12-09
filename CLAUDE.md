@@ -663,15 +663,17 @@ D:\JcampFxTrading/
 - **Result:** More accurate regime classification for better strategy filtering
 
 ### Indicator Validation 📋 PLANNED (Dec 9, 2025)
-**Goal:** Verify Python indicators match MT5 EA exactly before C# migration
+**Goal:** Validate initial load from Python matches MT5 EA exactly
 **Status:** Plan created, ready for implementation
 **Effort:** 2-3 hours
 **Approach:**
-- Modify MT5 EA to log indicator values
+- Modify MT5 EA to log indicator values (initial load state)
 - Create test suite comparing Python vs MT5 calculations
 - Add RSI calculation to indicators.py
 - Validate on EURUSD H1 (2024-12-01 to 2024-12-07)
+- Ensure all indicators load correctly at startup
 **Plan:** `C:\Users\jcamp\.claude\plans\idempotent-floating-fiddle.md`
+**Branch:** `phase7-validate-initial-load` (for implementation)
 
 ### Phase 7: Strategy Enhancements (14-18 hours) 🔥 READY AFTER INDICATOR VALIDATION
 **Goal:** Improve profitability from +16R to +25-32R (+56-100%)
@@ -793,10 +795,11 @@ python scripts/precompute_indicators.py --symbol EURUSD --year 2024
 
 ## CRITICAL NOTES
 
-- **📋 INDICATOR VALIDATION NEXT:** Verify Python indicators match MT5 EA (2-3 hours)
-  - Reference: `Jcamp_BacktestEA.mq5` v1.96
+- **📋 VALIDATE INITIAL LOAD NEXT:** Ensure Python initial load matches MT5 EA (2-3 hours)
+  - Reference: `Jcamp_BacktestEA.mq5` v1.96 (initial bar state)
   - Indicators: ATR(14), EMA(20/50/100), ADX(14), RSI(14), +DI/-DI
   - Plan: `C:\Users\jcamp\.claude\plans\idempotent-floating-fiddle.md`
+  - Branch: `phase7-validate-initial-load`
   - Status: Ready for implementation
 
 - **🔥 PHASE 7 AFTER VALIDATION:** Strategy enhancements are TOP PRIORITY
@@ -823,27 +826,29 @@ python scripts/precompute_indicators.py --symbol EURUSD --year 2024
 
 ---
 
-## SESSION CHECKLIST (NEXT SESSION)
+## SESSION CHECKLIST (NEXT SESSION - INITIAL LOAD VALIDATION)
 
 ### Start
-- [ ] Read `docs/current/PHASE_7_STRATEGY_ENHANCEMENTS.md`
+- [ ] Read `C:\Users\jcamp\.claude\plans\idempotent-floating-fiddle.md`
+- [ ] Checkout `phase7-validate-initial-load` branch
 - [ ] Check `git status` and `git log -5`
-- [ ] Review current strategy performance (+16R baseline)
-- [ ] Understand Phase 7 Session 1 priorities (5 critical enhancements)
+- [ ] Understand validation approach (MT5 EA logging, test suite)
 
-### Session 1 Goals (6-8 hours)
-- [ ] Trailing Stop Logic (2 hrs)
-- [ ] Breakeven Logic (1 hr)
-- [ ] Take Profit Targets (1.5 hrs)
-- [ ] Daily Loss Limit (1 hr)
-- [ ] Position Correlation Filter (2 hrs)
+### Validation Session Goals (2-3 hours)
+- [ ] Modify MT5 EA to log indicator values (initial bar state)
+- [ ] Create `tests/test_indicator_accuracy.py` (200-250 LOC)
+- [ ] Add `calculate_rsi()` to `src/indicators.py` (50 LOC)
+- [ ] Collect MT5 reference data (1 week: 2024-12-01 to 2024-12-07)
+- [ ] Run validation tests comparing Python vs MT5
+- [ ] Document all findings and tolerances
 
-### End
-- [ ] Run unit tests
-- [ ] Run validation backtests
-- [ ] Update STATUS.md
-- [ ] Commit Python repo changes
-- [ ] Update CLAUDE.md with progress
+### End (Validation Complete)
+- [ ] All tests pass (within tolerance)
+- [ ] Run full test suite
+- [ ] Update STATUS.md with validation results
+- [ ] Commit to `phase7-validate-initial-load` branch
+- [ ] Merge to main when complete
+- [ ] Create `phase7-strategy-enhancements` branch for Phase 7
 
 ---
 

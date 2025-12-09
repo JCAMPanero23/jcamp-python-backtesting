@@ -272,7 +272,113 @@ class TechnicalIndicators:
             return 0.0, 0.0
         
         return plus_di.iloc[index], minus_di.iloc[index]
-    
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # RSI (RELATIVE STRENGTH INDEX) - Momentum Oscillator
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    def calculate_rsi(self, df: pd.DataFrame, period: int = 14,
+                      price: str = 'close') -> pd.Series:
+        """
+        Calculate RSI (Relative Strength Index)
+
+        RSI is a momentum oscillator that measures the speed and magnitude of
+        price changes. Values range from 0-100:
+        - Above 70: Overbought (potential reversal down)
+        - Below 30: Oversold (potential reversal up)
+        - Above 50: Bullish momentum
+        - Below 50: Bearish momentum
+
+        Uses Wilder's smoothing method (same as MT5 iRSI function).
+
+        Args:
+            df: DataFrame with price data
+            period: RSI period (default 14)
+            price: Price column to use ('close', 'open', 'high', 'low')
+
+        Returns:
+            Series with RSI values (0-100)
+        """
+        if price not in df.columns:
+            raise ValueError(f"Price column '{price}' not found in DataFrame")
+
+        # Calculate price changes
+        delta = df[price].diff()
+
+        # Separate gains and losses
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+
+        # Calculate average gain/loss using Wilder's smoothing
+        # Wilder's smoothing uses alpha = 1/period (same as ATR and ADX)
+        avg_gain = gain.ewm(alpha=1/period, adjust=False).mean()
+        avg_loss = loss.ewm(alpha=1/period, adjust=False).mean()
+
+        # Calculate RS (Relative Strength)
+        rs = avg_gain / avg_loss
+
+        # Calculate RSI
+        # RSI = 100 - (100 / (1 + RS))
+        rsi = 100 - (100 / (1 + rs))
+
+        # Handle division by zero (when avg_loss = 0, RSI = 100)
+        rsi = rsi.fillna(100)
+
+        return rsi
+
+    def get_rsi(self, df: pd.DataFrame, period: int = 14,
+                price: str = 'close', index: int = -1) -> float:
+        """
+        Get RSI value at specific index
+
+        Args:
+            df: DataFrame with price data
+            period: RSI period
+            price: Price column to use
+            index: Index to get value from (-1 = most recent)
+
+        Returns:
+            RSI value (0-100)
+        """
+        rsi_series = self.calculate_rsi(df, period, price)
+
+        if len(rsi_series) == 0:
+            return 50.0  # Neutral RSI if no data
+
+        return rsi_series.iloc[index]
+
+    def is_rsi_overbought(self, df: pd.DataFrame, period: int = 14,
+                          threshold: float = 70.0) -> bool:
+        """
+        Check if RSI indicates overbought condition
+
+        Args:
+            df: DataFrame with price data
+            period: RSI period
+            threshold: RSI threshold for overbought (default 70)
+
+        Returns:
+            True if RSI > threshold, False otherwise
+        """
+        rsi = self.get_rsi(df, period)
+        return rsi >= threshold
+
+    def is_rsi_oversold(self, df: pd.DataFrame, period: int = 14,
+                        threshold: float = 30.0) -> bool:
+        """
+        Check if RSI indicates oversold condition
+
+        Args:
+            df: DataFrame with price data
+            period: RSI period
+            threshold: RSI threshold for oversold (default 30)
+
+        Returns:
+            True if RSI < threshold, False otherwise
+        """
+        rsi = self.get_rsi(df, period)
+        return rsi <= threshold
+
     # ═══════════════════════════════════════════════════════════════════════════
     # HELPER FUNCTIONS
     # ═══════════════════════════════════════════════════════════════════════════
@@ -335,10 +441,10 @@ class TechnicalIndicators:
     def calculate_all_indicators(self, df: pd.DataFrame) -> dict:
         """
         Calculate all indicators and return as dictionary
-        
+
         Args:
             df: DataFrame with OHLC data
-            
+
         Returns:
             Dictionary with all indicator values
         """
@@ -346,20 +452,24 @@ class TechnicalIndicators:
             'atr_14': self.get_atr(df, 14),
             'ema_20': self.get_ema(df, 20),
             'ema_50': self.get_ema(df, 50),
+            'ema_100': self.get_ema(df, 100),
             'ema_separation': self.calculate_ema_separation(df, 20, 50),
             'adx_14': self.get_adx(df, 14),
             'plus_di': 0.0,
             'minus_di': 0.0,
+            'rsi_14': self.get_rsi(df, 14),
             'trend_direction': self.get_trend_direction(df, 14),
             'ema_bullish': self.is_ema_bullish(df, 20, 50),
             'adx_strong': self.is_adx_strong(df, 14, 25.0),
+            'rsi_overbought': self.is_rsi_overbought(df, 14, 70.0),
+            'rsi_oversold': self.is_rsi_oversold(df, 14, 30.0),
         }
-        
+
         # Get +DI and -DI
         plus_di, minus_di = self.get_directional_indicators(df, 14)
         indicators['plus_di'] = plus_di
         indicators['minus_di'] = minus_di
-        
+
         return indicators
 
 
@@ -422,10 +532,24 @@ if __name__ == "__main__":
     print(f"-DI: {minus_di:.2f}")
     print(f"Trend Direction: {'+1 (UP)' if trend_dir == 1 else '-1 (DOWN)' if trend_dir == -1 else '0 (NEUTRAL)'}")
     print(f"Strong Trend: {'YES' if adx_strong else 'NO'}")
-    
-    # Test 4: All indicators
+
+    # Test 4: RSI
     print("\n" + "-"*80)
-    print("TEST 4: All Indicators Summary")
+    print("TEST 4: RSI Calculation")
+    print("-"*80)
+    rsi = indicators.get_rsi(eurusd_h1, 14)
+    rsi_overbought = indicators.is_rsi_overbought(eurusd_h1, 14, 70.0)
+    rsi_oversold = indicators.is_rsi_oversold(eurusd_h1, 14, 30.0)
+
+    print(f"RSI(14): {rsi:.2f}")
+    print(f"Overbought (>70): {'YES' if rsi_overbought else 'NO'}")
+    print(f"Oversold (<30): {'YES' if rsi_oversold else 'NO'}")
+    momentum = 'BULLISH' if rsi > 50 else 'BEARISH' if rsi < 50 else 'NEUTRAL'
+    print(f"Momentum: {momentum}")
+
+    # Test 5: All indicators
+    print("\n" + "-"*80)
+    print("TEST 5: All Indicators Summary")
     print("-"*80)
     all_ind = indicators.calculate_all_indicators(eurusd_h1)
     for key, value in all_ind.items():

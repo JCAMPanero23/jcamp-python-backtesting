@@ -1,0 +1,13 @@
+Timestamp,Close,ATR,EMA20,EMA50,EMA100,ADX,+DI,-DI,RSI
+# This is a TEMPLATE file. Replace with actual MT5 indicator values.
+# Follow instructions in tests/MT5_INDICATOR_EXPORT_INSTRUCTIONS.md
+#
+# Format:
+# Timestamp (YYYY.MM.DD HH:MM), Close price, ATR(14), EMA20, EMA50, EMA100, ADX(14), +DI, -DI, RSI(14)
+#
+# Example data (REPLACE WITH ACTUAL MT5 VALUES):
+# 2024.12.07 23:00,1.05234,0.00142,1.05234,1.05189,1.05456,24.50,18.30,12.70,52.30
+# 2024.12.07 22:00,1.05256,0.00141,1.05237,1.05191,1.05453,24.80,18.70,12.50,53.10
+# 2024.12.07 21:00,1.05201,0.00140,1.05240,1.05193,1.05450,25.10,19.00,12.30,54.20
+#
+# After collecting MT5 data, rename this file to: mt5_reference_data.csv

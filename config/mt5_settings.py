@@ -56,7 +56,7 @@ CSM_NORMALIZATION_THRESHOLD = 0.001  # Min range for normalization
 # ═══════════════════════════════════════════════════════════════════════════════
 REGIME_CHECK_HOURS = 4             # Check regime every 4 hours
 TRENDING_THRESHOLD_PERCENT = 55    # >= 55% trending score = TRENDING
-RANGING_THRESHOLD_PERCENT = 55     # >= 55% ranging score = RANGING (mirror threshold)
+RANGING_THRESHOLD_PERCENT = 40     # >= 40% ranging score = RANGING (MT5 EA parity - asymmetric)
 # If scores within CLOSE_SCORES_THRESHOLD (5%) = TRANSITIONAL
 
 # Regime Detection Indicators

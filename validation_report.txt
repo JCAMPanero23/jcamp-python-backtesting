@@ -1,0 +1,33 @@
+
+================================================================================
+REGIME & CSM VALIDATION REPORT
+Period: December 2-6, 2024 (Monday-Friday business week)
+================================================================================
+
+REGIME CLASSIFICATION
+  Match Rate: 88.5%
+  Status: [WARN]  WARN
+  Expected: >=95% match
+  ACTION: Investigate 11.5% mismatches
+
+COMPONENT SCORES
+
+CSM CURRENCY STRENGTH
+  [PASS] PASS EUR: mean_error=0.00
+  [PASS] PASS USD: mean_error=0.00
+  [PASS] PASS GBP: mean_error=0.00
+  [PASS] PASS JPY: mean_error=0.00
+  [PASS] PASS CHF: mean_error=0.00
+  [PASS] PASS AUD: mean_error=0.00
+  [PASS] PASS CAD: mean_error=0.00
+  [PASS] PASS NZD: mean_error=0.00
+
+================================================================================
+VALIDATION DECISION
+================================================================================
+
+[WARN]  VALIDATION PASSED WITH WARNINGS
+   Review discrepancies before proceeding
+   Likely minor differences (rounding, precision)
+
+================================================================================

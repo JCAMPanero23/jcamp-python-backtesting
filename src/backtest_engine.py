@@ -22,7 +22,6 @@ from src.indicators import TechnicalIndicators
 from src.regime_detector import RegimeDetector
 from src.strategies.trend_rider import TrendRiderStrategy
 from src.strategies.range_rider import RangeRiderStrategy
-from src.strategies.simple_test import SimpleTestStrategy
 from src.position_manager import PositionManager, Position, ExitReason, PositionSide
 from src.performance_tracker import PerformanceTracker
 
@@ -65,7 +64,6 @@ class BacktestEngine:
         
         # Strategy components
         config = self._get_config()
-        self.simple_test = SimpleTestStrategy(config)
         self.trend_rider = TrendRiderStrategy(config)
         self.range_rider = RangeRiderStrategy(config)
         
@@ -204,14 +202,12 @@ class BacktestEngine:
         df['csm_quote'] = 50.0
         df['csm_diff'] = 0.0
 
-        # Skip CSM calculation for Simple Test strategy (doesn't use CSM)
-        # This saves ~12 minutes for single-pair backtests!
-        # Phase 1 Fix: Use hardcoded strategy since only SimpleTest is currently enabled
-        skip_csm = True  # SIMPLE_TEST is the only active strategy (see _check_entries lines 376-410)
+        # CSM calculation (required for Trend Rider strategy)
+        skip_csm = False
 
         if skip_csm:
             if self.verbose:
-                print(f"[CSM] Skipping CSM calculation for SIMPLE_TEST (not required)")
+                print(f"[CSM] Skipping CSM calculation")
         else:
             if self.verbose:
                 print("[CSM] Calculating Currency Strength Meter...")
@@ -373,40 +369,29 @@ class BacktestEngine:
         else:
             regime = str(regime).split('.')[-1] if '.' in str(regime) else str(regime)
         
-        # Check Simple Test Strategy (for chart testing)
-        st_signal, st_confidence, st_details = self.simple_test.generate_signal(
-            df, idx, csm_data, regime
-        )
-
-        if st_signal != 'NONE':
-            self._open_position(
-                symbol, st_signal, current_price, current_time,
-                df, idx, 'SIMPLE_TEST', st_confidence, regime
+        # Route to appropriate strategy based on regime
+        if regime == 'TRENDING':
+            signal, confidence, details = self.trend_rider.generate_signal(
+                df, idx, csm_data, regime
             )
-            return  # One entry per bar
-
-        # DISABLED FOR TESTING: Check Trend Rider
-        # tr_signal, tr_confidence, tr_details = self.trend_rider.generate_signal(
-        #     df, idx, csm_data, regime
-        # )
-        #
-        # if tr_signal != 'NONE':
-        #     self._open_position(
-        #         symbol, tr_signal, current_price, current_time,
-        #         df, idx, 'TREND_RIDER', tr_confidence, regime
-        #     )
-        #     return  # One entry per bar
-
-        # DISABLED FOR TESTING: Check Range Rider
-        # rr_signal, rr_confidence, rr_details = self.range_rider.generate_signal(
-        #     df, idx, csm_data, regime
-        # )
-        #
-        # if rr_signal != 'NONE':
-        #     self._open_position(
-        #         symbol, rr_signal, current_price, current_time,
-        #         df, idx, 'RANGE_RIDER', rr_confidence, regime
-        #     )
+            strategy_name = 'TREND_RIDER'
+            
+        elif regime == 'RANGING':
+            signal, confidence, details = self.range_rider.generate_signal(
+                df, idx, csm_data, regime
+            )
+            strategy_name = 'RANGE_RIDER'
+            
+        else:  # TRANSITIONAL
+            # No trading during transitional regime
+            return
+        
+        # Open position if signal generated
+        if signal != 'NONE':
+            self._open_position(
+                symbol, signal, current_price, current_time,
+                df, idx, strategy_name, confidence, regime
+            )
     
     def _open_position(
         self,
@@ -422,9 +407,7 @@ class BacktestEngine:
     ):
         """Open a new position."""
         # Get strategy object
-        if strategy == 'SIMPLE_TEST':
-            strategy_obj = self.simple_test
-        elif strategy == 'TREND_RIDER':
+        if strategy == 'TREND_RIDER':
             strategy_obj = self.trend_rider
         else:  # RANGE_RIDER
             strategy_obj = self.range_rider

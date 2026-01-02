@@ -6,7 +6,7 @@ Orchestrates backtest execution and task management
 import time
 import traceback
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from datetime import datetime
 from src.backtest_engine import BacktestEngine
 from src.visualization.chart_generator import (
@@ -140,6 +140,366 @@ class BacktestService:
             }
             print(f"Backtest {task_id} failed: {e}")
             traceback.print_exc()
+
+    async def execute_multi_pair_backtest(self, task_id: str):
+        """
+        Execute multi-pair backtest in background.
+
+        Runs separate backtests for each pair, then merges trades chronologically
+        and calculates aggregate statistics.
+        """
+        try:
+            task = self.tasks.get(task_id)
+            if not task:
+                return
+
+            # Mark as running
+            task["status"] = "running"
+            task["started_at"] = datetime.utcnow().isoformat() + "Z"
+            task["message"] = "Starting multi-pair backtest..."
+            task["progress"] = 0.0
+
+            # Get request parameters
+            request = task["request"]
+            pairs = request["pairs"]
+            strategies = request["strategies"]
+            config = request["config"]
+
+            print(f"\n[MULTI-PAIR] Starting backtest for {len(pairs)} pairs × {len(strategies)} strategies")
+            print(f"[MULTI-PAIR] Pairs: {', '.join(pairs)}")
+            print(f"[MULTI-PAIR] Strategies: {', '.join(strategies)}")
+            print(f"[MULTI-PAIR] Date range: {request['start_date']} to {request['end_date']}")
+
+            # Track progress
+            total_backtests = len(pairs) * len(strategies)
+            completed_backtests = 0
+
+            # Storage for all results
+            all_trades = []
+            pair_results = {}  # pair -> {strategy -> results}
+            strategy_results = {}  # strategy -> aggregated results
+
+            # Run backtest for each pair + strategy combination
+            for pair in pairs:
+                pair_results[pair] = {}
+
+                for strategy in strategies:
+                    task["progress"] = (completed_backtests / total_backtests) * 90.0
+                    task["message"] = f"Processing {pair} - {strategy}..."
+                    print(f"\n[MULTI-PAIR] [{completed_backtests + 1}/{total_backtests}] Running {pair} - {strategy}")
+
+                    # Initialize backtest engine
+                    engine = BacktestEngine(
+                        initial_balance=config.get("initial_balance", 10000.0),
+                        risk_percent=config.get("risk_percent", 2.0),
+                        max_positions=config.get("max_concurrent_positions", 2),
+                        timeframe=request.get("timeframe", "M15")
+                    )
+
+                    # Extract year from start_date
+                    year = request["start_date"][:4]
+
+                    # Run backtest for this pair+strategy
+                    results = engine.run_backtest(
+                        symbol=pair,
+                        year=year,
+                        start_date=request["start_date"],
+                        end_date=request["end_date"]
+                    )
+
+                    # Store results
+                    pair_results[pair][strategy] = results
+
+                    # Add trades to master list (with pair info)
+                    for trade in results.get("trades", []):
+                        trade_copy = trade.copy()
+                        trade_copy["symbol"] = pair
+                        all_trades.append(trade_copy)
+
+                    completed_backtests += 1
+                    print(f"[MULTI-PAIR] ✓ {pair} - {strategy}: {results['performance']['total_trades']} trades, {results['performance']['total_r']:.2f}R")
+
+            # Sort all trades chronologically
+            task["progress"] = 92.0
+            task["message"] = "Merging trades chronologically..."
+            print(f"\n[MULTI-PAIR] Merging {len(all_trades)} trades chronologically...")
+
+            all_trades.sort(key=lambda t: t["entry_time"])
+
+            # Calculate aggregate statistics
+            task["progress"] = 95.0
+            task["message"] = "Calculating statistics..."
+            print(f"[MULTI-PAIR] Calculating aggregate statistics...")
+
+            aggregate_stats = self._calculate_multi_pair_statistics(
+                all_trades,
+                pair_results,
+                pairs,
+                strategies,
+                config.get("initial_balance", 10000.0)
+            )
+
+            # Transform to API format
+            task["progress"] = 98.0
+            task["message"] = "Formatting results..."
+
+            api_results = self._transform_multi_pair_results(
+                task_id,
+                request,
+                all_trades,
+                aggregate_stats
+            )
+
+            # Mark as complete
+            task["status"] = "complete"
+            task["progress"] = 100.0
+            task["message"] = f"Multi-pair backtest completed: {len(all_trades)} trades across {len(pairs)} pairs"
+            task["completed_at"] = datetime.utcnow().isoformat() + "Z"
+            task["results"] = api_results
+
+            print(f"\n[MULTI-PAIR] ✅ COMPLETE")
+            print(f"[MULTI-PAIR] Total trades: {len(all_trades)}")
+            print(f"[MULTI-PAIR] Total R: {aggregate_stats['total_r']:.2f}")
+            print(f"[MULTI-PAIR] Win rate: {aggregate_stats['win_rate']:.1f}%")
+            print(f"[MULTI-PAIR] Final balance: ${aggregate_stats['final_balance']:.2f}")
+
+        except Exception as e:
+            # Mark as failed
+            task["status"] = "failed"
+            task["message"] = f"Multi-pair backtest failed: {str(e)}"
+            task["error"] = {
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            }
+            print(f"[MULTI-PAIR] ❌ FAILED: {e}")
+            traceback.print_exc()
+
+    def _calculate_multi_pair_statistics(
+        self,
+        all_trades: List[Dict],
+        pair_results: Dict,
+        pairs: List[str],
+        strategies: List[str],
+        initial_balance: float
+    ) -> Dict:
+        """
+        Calculate aggregate statistics across all pairs and strategies.
+
+        Returns:
+            Dictionary with overall stats, pair breakdowns, and strategy breakdowns
+        """
+        import numpy as np
+
+        # Overall statistics
+        total_trades = len(all_trades)
+        wins = sum(1 for t in all_trades if t.get("r_multiple", 0) > 0)
+        losses = sum(1 for t in all_trades if t.get("r_multiple", 0) < 0)
+        total_r = sum(t.get("r_multiple", 0) for t in all_trades)
+        avg_r = total_r / total_trades if total_trades > 0 else 0
+        win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
+
+        r_multiples = [t.get("r_multiple", 0) for t in all_trades if t.get("r_multiple") is not None]
+        max_r = max(r_multiples) if r_multiples else 0
+        min_r = min(r_multiples) if r_multiples else 0
+
+        # Calculate P&L
+        total_pl = sum(t.get("profit_loss", 0) for t in all_trades if t.get("profit_loss"))
+        final_balance = initial_balance + total_pl
+        return_pct = (total_pl / initial_balance * 100) if initial_balance > 0 else 0
+
+        # Profit factor
+        winning_pl = sum(t.get("profit_loss", 0) for t in all_trades if t.get("profit_loss", 0) > 0)
+        losing_pl = abs(sum(t.get("profit_loss", 0) for t in all_trades if t.get("profit_loss", 0) < 0))
+        profit_factor = (winning_pl / losing_pl) if losing_pl > 0 else 0
+
+        # Drawdown (simplified - track equity curve)
+        equity = initial_balance
+        peak_equity = initial_balance
+        max_drawdown_dollars = 0
+        max_drawdown_pct = 0
+
+        for trade in all_trades:
+            pl = trade.get("profit_loss", 0)
+            if pl:
+                equity += pl
+                if equity > peak_equity:
+                    peak_equity = equity
+                drawdown = peak_equity - equity
+                if drawdown > max_drawdown_dollars:
+                    max_drawdown_dollars = drawdown
+                    max_drawdown_pct = (drawdown / peak_equity * 100) if peak_equity > 0 else 0
+
+        # Consecutive wins/losses
+        consecutive_wins = 0
+        consecutive_losses = 0
+        max_consecutive_wins = 0
+        max_consecutive_losses = 0
+
+        for trade in all_trades:
+            r = trade.get("r_multiple", 0)
+            if r > 0:
+                consecutive_wins += 1
+                consecutive_losses = 0
+                max_consecutive_wins = max(max_consecutive_wins, consecutive_wins)
+            elif r < 0:
+                consecutive_losses += 1
+                consecutive_wins = 0
+                max_consecutive_losses = max(max_consecutive_losses, consecutive_losses)
+
+        # Sharpe ratio (simplified - assumes daily returns)
+        if r_multiples and len(r_multiples) > 1:
+            sharpe_ratio = np.mean(r_multiples) / np.std(r_multiples) if np.std(r_multiples) > 0 else 0
+        else:
+            sharpe_ratio = 0
+
+        # Strategy breakdowns
+        strategy_breakdown = {}
+        for strategy in strategies:
+            # Normalize: request has 'trend_rider', trades have 'TREND_RIDER'
+            strategy_upper = strategy.upper()
+            strategy_trades = [t for t in all_trades if t.get("strategy", "").upper() == strategy_upper]
+
+            if strategy_trades:
+                strat_wins = sum(1 for t in strategy_trades if t.get("r_multiple", 0) > 0)
+                strat_losses = sum(1 for t in strategy_trades if t.get("r_multiple", 0) < 0)
+                strat_total_r = sum(t.get("r_multiple", 0) for t in strategy_trades)
+                strat_total_pl = sum(t.get("profit_loss", 0) for t in strategy_trades if t.get("profit_loss"))
+
+                strategy_breakdown[strategy] = {
+                    "trades": len(strategy_trades),
+                    "wins": strat_wins,
+                    "losses": strat_losses,
+                    "total_r": strat_total_r,
+                    "total_pl": strat_total_pl,
+                    "win_rate": (strat_wins / len(strategy_trades) * 100) if strategy_trades else 0,
+                    "avg_r": (strat_total_r / len(strategy_trades)) if strategy_trades else 0
+                }
+
+        # Pair breakdowns
+        pair_breakdown = {}
+        for pair in pairs:
+            pair_trades = [t for t in all_trades if t.get("symbol") == pair]
+
+            if pair_trades:
+                pair_wins = sum(1 for t in pair_trades if t.get("r_multiple", 0) > 0)
+                pair_losses = sum(1 for t in pair_trades if t.get("r_multiple", 0) < 0)
+                pair_total_r = sum(t.get("r_multiple", 0) for t in pair_trades)
+                pair_total_pl = sum(t.get("profit_loss", 0) for t in pair_trades if t.get("profit_loss"))
+
+                pair_breakdown[pair] = {
+                    "pair": pair,
+                    "trades": len(pair_trades),
+                    "wins": pair_wins,
+                    "losses": pair_losses,
+                    "total_r": pair_total_r,
+                    "total_pl": pair_total_pl,
+                    "win_rate": (pair_wins / len(pair_trades) * 100) if pair_trades else 0,
+                    "avg_r": (pair_total_r / len(pair_trades)) if pair_trades else 0
+                }
+
+        return {
+            "initial_balance": initial_balance,
+            "final_balance": final_balance,
+            "net_profit": total_pl,
+            "return_pct": return_pct,
+            "total_trades": total_trades,
+            "winning_trades": wins,
+            "losing_trades": losses,
+            "win_rate": win_rate,
+            "total_r": total_r,
+            "avg_r": avg_r,
+            "max_r": max_r,
+            "min_r": min_r,
+            "max_drawdown_pct": max_drawdown_pct,
+            "max_drawdown_dollars": max_drawdown_dollars,
+            "profit_factor": profit_factor,
+            "sharpe_ratio": sharpe_ratio,
+            "max_consecutive_wins": max_consecutive_wins,
+            "max_consecutive_losses": max_consecutive_losses,
+            "strategy_breakdown": strategy_breakdown,
+            "pair_breakdown": pair_breakdown
+        }
+
+    def _transform_multi_pair_results(
+        self,
+        task_id: str,
+        request: Dict,
+        all_trades: List[Dict],
+        aggregate_stats: Dict
+    ) -> Dict:
+        """
+        Transform multi-pair results to API response format.
+        """
+        # Transform trades
+        api_trades = []
+        for trade in all_trades:
+            api_trades.append({
+                "position_id": trade["position_id"],
+                "symbol": trade["symbol"],
+                "side": trade["side"],
+                "strategy": trade["strategy"],
+                "confidence": trade.get("confidence", 0.0),
+                "regime": trade.get("regime", "UNKNOWN"),
+                "entry_time": trade["entry_time"].isoformat() if isinstance(trade["entry_time"], datetime) else trade["entry_time"],
+                "exit_time": trade["exit_time"].isoformat() if trade.get("exit_time") and isinstance(trade["exit_time"], datetime) else trade.get("exit_time"),
+                "entry_price": trade["entry_price"],
+                "exit_price": trade.get("exit_price"),
+                "stop_loss": trade.get("initial_stop"),
+                "take_profit": trade.get("initial_tp"),
+                "r_multiple": trade.get("r_multiple"),
+                "profit_loss": trade.get("profit_loss"),
+                "exit_reason": trade.get("exit_reason")
+            })
+
+        # Build equity curve (chronological cumulative R)
+        api_equity = []
+        cumulative_r = 0
+        balance = aggregate_stats["initial_balance"]
+
+        for trade in all_trades:
+            if trade.get("exit_time"):
+                r_mult = trade.get("r_multiple", 0)
+                pl = trade.get("profit_loss", 0)
+                cumulative_r += r_mult
+                balance += pl
+
+                api_equity.append({
+                    "timestamp": trade["exit_time"].isoformat() if isinstance(trade["exit_time"], datetime) else trade["exit_time"],
+                    "balance": balance,
+                    "r_multiple": r_mult,
+                    "cumulative_r": cumulative_r,
+                    "strategy": trade.get("strategy", "UNKNOWN")
+                })
+
+        return {
+            "task_id": task_id,
+            "pairs": request["pairs"],
+            "strategies": request["strategies"],
+            "start_date": request["start_date"],
+            "end_date": request["end_date"],
+            "initial_balance": aggregate_stats["initial_balance"],
+            "final_balance": aggregate_stats["final_balance"],
+            "net_profit": aggregate_stats["net_profit"],
+            "return_pct": aggregate_stats["return_pct"],
+            "total_trades": aggregate_stats["total_trades"],
+            "winning_trades": aggregate_stats["winning_trades"],
+            "losing_trades": aggregate_stats["losing_trades"],
+            "win_rate": aggregate_stats["win_rate"],
+            "total_r": aggregate_stats["total_r"],
+            "avg_r": aggregate_stats["avg_r"],
+            "max_r": aggregate_stats["max_r"],
+            "min_r": aggregate_stats["min_r"],
+            "max_drawdown_pct": aggregate_stats["max_drawdown_pct"],
+            "max_drawdown_dollars": aggregate_stats["max_drawdown_dollars"],
+            "profit_factor": aggregate_stats["profit_factor"],
+            "sharpe_ratio": aggregate_stats["sharpe_ratio"],
+            "max_consecutive_wins": aggregate_stats["max_consecutive_wins"],
+            "max_consecutive_losses": aggregate_stats["max_consecutive_losses"],
+            "strategy_breakdown": aggregate_stats["strategy_breakdown"],
+            "pair_breakdown": aggregate_stats["pair_breakdown"],
+            "trades": api_trades,
+            "equity_curve": api_equity
+        }
 
     def _transform_results(self, task_id: str, request: Dict, results: Dict) -> Dict:
         """Transform BacktestEngine results to API response format"""

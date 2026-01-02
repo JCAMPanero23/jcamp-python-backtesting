@@ -4,7 +4,7 @@ Data validation for incoming API requests
 """
 
 from pydantic import BaseModel, Field, validator
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from datetime import datetime
 
 
@@ -126,6 +126,84 @@ class ConfigValidationRequest(BaseModel):
                     "start_date": "2024-01-01",
                     "end_date": "2024-12-31",
                     "strategy": "both"
+                }
+            }
+        }
+
+
+class MultiPairBacktestRequest(BaseModel):
+    """Request model for multi-pair backtest"""
+
+    pairs: List[str] = Field(..., description="List of trading pairs (e.g., ['EURUSD', 'GBPUSD'])")
+    strategies: List[str] = Field(..., description="Strategies to run: ['trend_rider', 'range_rider']")
+    start_date: str = Field(..., description="Start date (YYYY-MM-DD)")
+    end_date: str = Field(..., description="End date (YYYY-MM-DD)")
+    timeframe: str = Field("M15", description="Chart timeframe: M15, H1, or H4")
+    config: Dict = Field(..., description="Backtest configuration")
+
+    @validator('pairs')
+    def validate_pairs(cls, v):
+        """Validate pairs list"""
+        valid_symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'NZDUSD', 'EURGBP', 'EURJPY']
+        if not v or len(v) == 0:
+            raise ValueError('At least one pair must be specified')
+        for symbol in v:
+            if symbol not in valid_symbols:
+                raise ValueError(f'Symbol {symbol} must be one of {valid_symbols}')
+        return v
+
+    @validator('strategies')
+    def validate_strategies(cls, v):
+        """Validate strategies list"""
+        valid_strategies = ['trend_rider', 'range_rider']
+        if not v or len(v) == 0:
+            raise ValueError('At least one strategy must be specified')
+        for strategy in v:
+            if strategy not in valid_strategies:
+                raise ValueError(f'Strategy {strategy} must be one of {valid_strategies}')
+        return v
+
+    @validator('start_date', 'end_date')
+    def validate_date_format(cls, v):
+        """Validate date format"""
+        try:
+            datetime.strptime(v, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError('Date must be in YYYY-MM-DD format')
+        return v
+
+    @validator('config')
+    def validate_config(cls, v):
+        """Validate required config fields"""
+        required_fields = ['initial_balance', 'risk_percent', 'max_concurrent_positions']
+        for field in required_fields:
+            if field not in v:
+                raise ValueError(f'Config must contain {field}')
+
+        # Validate ranges
+        if not 1000 <= v['initial_balance'] <= 1000000:
+            raise ValueError('initial_balance must be between 1000 and 1000000')
+        if not 0.1 <= v['risk_percent'] <= 10.0:
+            raise ValueError('risk_percent must be between 0.1 and 10.0')
+        if not 1 <= v['max_concurrent_positions'] <= 10:
+            raise ValueError('max_concurrent_positions must be between 1 and 10')
+
+        return v
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "pairs": ["EURUSD", "GBPUSD", "USDJPY"],
+                "strategies": ["trend_rider", "range_rider"],
+                "start_date": "2024-01-01",
+                "end_date": "2024-12-31",
+                "timeframe": "M15",
+                "config": {
+                    "initial_balance": 10000.0,
+                    "risk_percent": 2.0,
+                    "max_concurrent_positions": 2,
+                    "min_confidence": 50.0,
+                    "take_profit_r": 2.0
                 }
             }
         }

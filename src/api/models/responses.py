@@ -346,3 +346,122 @@ class ValidationResponse(BaseModel):
                 ]
             }
         }
+
+
+class PairBreakdown(BaseModel):
+    """Performance breakdown by pair"""
+
+    pair: str
+    trades: int
+    wins: int
+    losses: int
+    total_r: float
+    total_pl: float
+    win_rate: float
+    avg_r: float
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "pair": "EURUSD",
+                "trades": 52,
+                "wins": 30,
+                "losses": 22,
+                "total_r": 5.6,
+                "total_pl": 560.0,
+                "win_rate": 57.7,
+                "avg_r": 0.11
+            }
+        }
+
+
+class MultiPairBacktestResults(BaseModel):
+    """Complete multi-pair backtest results"""
+
+    task_id: str
+    pairs: List[str]
+    strategies: List[str]
+    start_date: str
+    end_date: str
+
+    # Overall performance
+    initial_balance: float
+    final_balance: float
+    net_profit: float
+    return_pct: float
+    total_trades: int
+    winning_trades: int
+    losing_trades: int
+    win_rate: float
+    total_r: float
+    avg_r: float
+    max_r: float
+    min_r: float
+    max_drawdown_pct: float
+    max_drawdown_dollars: float
+    profit_factor: float
+    sharpe_ratio: float
+    max_consecutive_wins: int
+    max_consecutive_losses: int
+
+    # Breakdowns
+    strategy_breakdown: Dict[str, StrategyBreakdown]
+    pair_breakdown: Dict[str, PairBreakdown]
+
+    # Trade data
+    trades: List[TradeRecord]
+    equity_curve: List[EquityPoint]
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "task_id": "abc123-def456-ghi789",
+                "pairs": ["EURUSD", "GBPUSD", "USDJPY"],
+                "strategies": ["trend_rider", "range_rider"],
+                "start_date": "2024-01-01",
+                "end_date": "2024-12-31",
+                "initial_balance": 10000.0,
+                "final_balance": 11230.0,
+                "net_profit": 1230.0,
+                "return_pct": 12.3,
+                "total_trades": 156,
+                "winning_trades": 85,
+                "losing_trades": 71,
+                "win_rate": 54.5,
+                "total_r": 12.3,
+                "avg_r": 0.08,
+                "max_r": 3.0,
+                "min_r": -1.0,
+                "max_drawdown_pct": 3.2,
+                "max_drawdown_dollars": 320.0,
+                "profit_factor": 1.5,
+                "sharpe_ratio": 1.8,
+                "max_consecutive_wins": 7,
+                "max_consecutive_losses": 5,
+                "strategy_breakdown": {
+                    "trend_rider": {
+                        "trades": 89,
+                        "wins": 50,
+                        "losses": 39,
+                        "total_r": 8.2,
+                        "total_pl": 820.0,
+                        "win_rate": 56.2,
+                        "avg_r": 0.09
+                    }
+                },
+                "pair_breakdown": {
+                    "EURUSD": {
+                        "pair": "EURUSD",
+                        "trades": 52,
+                        "wins": 30,
+                        "losses": 22,
+                        "total_r": 5.6,
+                        "total_pl": 560.0,
+                        "win_rate": 57.7,
+                        "avg_r": 0.11
+                    }
+                },
+                "trades": [],
+                "equity_curve": []
+            }
+        }

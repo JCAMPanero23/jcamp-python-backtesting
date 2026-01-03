@@ -9,14 +9,15 @@ from typing import List
 import uuid
 import os
 
-from src.api.models.requests import BacktestRequest, ConfigValidationRequest
+from src.api.models.requests import BacktestRequest, ConfigValidationRequest, MultiPairBacktestRequest
 from src.api.models.responses import (
     BacktestResponse,
     BacktestStatus,
     BacktestResults,
     BacktestSummary,
     BacktestListItem,
-    ValidationResponse
+    ValidationResponse,
+    MultiPairBacktestResults
 )
 from src.api.services.backtest_service import BacktestService
 
@@ -52,6 +53,63 @@ async def run_backtest(request: BacktestRequest, background_tasks: BackgroundTas
     background_tasks.add_task(backtest_service.execute_backtest, task_id)
 
     return BacktestResponse(task_id=task_id, status="queued")
+
+
+@router.post("/multi-pair", response_model=BacktestResponse, tags=["Backtest"])
+async def run_multi_pair_backtest(request: MultiPairBacktestRequest, background_tasks: BackgroundTasks):
+    """
+    Start a multi-pair backtest (runs asynchronously)
+
+    Tests multiple currency pairs with selected strategies simultaneously.
+    Merges results chronologically and provides aggregate statistics.
+
+    - **pairs**: List of trading pairs (e.g., ["EURUSD", "GBPUSD", "USDJPY"])
+    - **strategies**: Strategies to run (e.g., ["trend_rider", "range_rider"])
+    - **start_date**: Start date (YYYY-MM-DD)
+    - **end_date**: End date (YYYY-MM-DD)
+    - **config**: Configuration object with:
+        - initial_balance: Starting balance (default: 10000.0)
+        - risk_percent: Risk per trade percentage (default: 2.0)
+        - max_concurrent_positions: Max positions across ALL pairs (default: 2)
+        - min_confidence: Minimum confidence threshold (default: 50.0)
+        - take_profit_r: Take profit target in R (default: 2.0)
+
+    Returns task_id for tracking progress
+    """
+    # Generate unique task ID
+    task_id = str(uuid.uuid4())
+
+    # Create task
+    backtest_service.create_task(task_id, request)
+
+    # Execute in background
+    background_tasks.add_task(backtest_service.execute_multi_pair_backtest, task_id)
+
+    return BacktestResponse(task_id=task_id, status="queued")
+
+
+@router.get("/multi-pair/{task_id}/results", response_model=MultiPairBacktestResults, tags=["Backtest"])
+async def get_multi_pair_results(task_id: str):
+    """
+    Get complete multi-pair backtest results
+
+    Returns aggregate performance metrics, trades merged chronologically,
+    and breakdowns by pair and strategy.
+
+    **Note**: This endpoint returns large amounts of data for multi-pair backtests.
+    """
+    result = backtest_service.get_task_results(task_id)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if result["status"] != "complete":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Backtest not complete. Current status: {result['status']}"
+        )
+
+    return result["data"]
 
 
 @router.get("/{task_id}/status", response_model=BacktestStatus, tags=["Backtest"])

@@ -561,6 +561,47 @@ pytest tests/validation/
 }
 ```
 
+### **Multi-Pair Backtest**
+
+**Endpoint:** `POST /api/v1/backtest/multi-pair`
+
+Test multiple currency pairs with selected strategies simultaneously.
+
+**Request Body:**
+```json
+{
+  "pairs": ["EURUSD", "GBPUSD", "USDJPY"],
+  "strategies": ["trend_rider", "range_rider"],
+  "start_date": "2024-01-01",
+  "end_date": "2024-12-31",
+  "timeframe": "M15",
+  "config": {
+    "initial_balance": 10000.0,
+    "risk_percent": 2.0,
+    "max_concurrent_positions": 2,
+    "min_confidence": 50.0,
+    "take_profit_r": 2.0
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "task_id": "abc123-def456",
+  "status": "queued"
+}
+```
+
+**Get Results:** `GET /api/v1/backtest/multi-pair/{task_id}/results`
+
+**Response includes:**
+- Aggregate performance metrics across all pairs
+- Trades merged chronologically
+- Breakdown by strategy (`strategy_breakdown`)
+- Breakdown by pair (`pair_breakdown`)
+- Equity curve with cumulative R
+
 Full API documentation: http://localhost:8000/docs
 
 ---

@@ -9,7 +9,7 @@ from typing import List
 import uuid
 import os
 
-from src.api.models.requests import BacktestRequest, ConfigValidationRequest
+from src.api.models.requests import BacktestRequest, ConfigValidationRequest, MultiPairBacktestRequest
 from src.api.models.responses import (
     BacktestResponse,
     BacktestStatus,
@@ -261,3 +261,60 @@ async def validate_config(request: ConfigValidationRequest):
         valid=len(errors) == 0,
         errors=errors
     )
+
+
+
+@router.post("/multi-pair", response_model=BacktestResponse, tags=["Backtest"])
+async def run_multi_pair_backtest(
+    request: MultiPairBacktestRequest,
+    background_tasks: BackgroundTasks
+):
+    """
+    Start a multi-pair backtest (runs asynchronously)
+    
+    - **pairs**: List of currency pairs (e.g., ["EURUSD", "GBPUSD", "USDJPY"])
+    - **strategies**: List of strategies (e.g., ["trend_rider", "range_rider"])
+    - **start_date**: Start date (YYYY-MM-DD)
+    - **end_date**: End date (YYYY-MM-DD)
+    - **timeframe**: Chart timeframe (default: M15)
+    - **config**: Backtest configuration (balance, risk, positions, etc.)
+    
+    Returns task_id for tracking progress
+    """
+    # Generate unique task ID
+    task_id = str(uuid.uuid4())
+    
+    # Create task
+    backtest_service.create_task(task_id, request)
+    
+    # Execute in background
+    background_tasks.add_task(backtest_service.execute_multi_pair_backtest, task_id)
+    
+    return BacktestResponse(task_id=task_id, status="queued")
+
+
+@router.get("/multi-pair/{task_id}/results", tags=["Backtest"])
+async def get_multi_pair_results(task_id: str):
+    """
+    Get complete multi-pair backtest results
+    
+    Returns:
+    - All trades chronologically sorted
+    - Overall statistics
+    - Per-pair breakdown
+    - Per-strategy breakdown
+    - Equity curve
+    - Chart data for each pair
+    """
+    result = backtest_service.get_task_results(task_id)
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    if result["status"] != "complete":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Backtest not complete. Current status: {result['status']}"
+        )
+    
+    return result["data"]

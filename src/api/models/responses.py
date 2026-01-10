@@ -346,3 +346,163 @@ class ValidationResponse(BaseModel):
                 ]
             }
         }
+
+
+
+class PairStatistics(BaseModel):
+    """Performance statistics for a single pair"""
+    
+    trades: int
+    wins: int
+    losses: int
+    win_rate: float
+    total_r: float
+    avg_r: float
+    net_profit: float
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "trades": 52,
+                "wins": 30,
+                "losses": 22,
+                "win_rate": 57.7,
+                "total_r": 5.6,
+                "avg_r": 0.11,
+                "net_profit": 560.0
+            }
+        }
+
+
+class StrategyStatistics(BaseModel):
+    """Performance statistics for a single strategy"""
+    
+    trades: int
+    wins: int
+    losses: int
+    win_rate: float
+    total_r: float
+    avg_r: float
+    net_profit: float
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "trades": 89,
+                "wins": 50,
+                "losses": 39,
+                "win_rate": 56.2,
+                "total_r": 8.2,
+                "avg_r": 0.09,
+                "net_profit": 820.0
+            }
+        }
+
+
+class OverallStatistics(BaseModel):
+    """Overall multi-pair backtest statistics"""
+    
+    total_trades: int
+    wins: int
+    losses: int
+    win_rate: float
+    total_r: float
+    avg_r: float
+    max_r: float
+    min_r: float
+    max_drawdown: float
+    max_drawdown_pct: float
+    sharpe_ratio: float
+    initial_balance: float
+    final_balance: float
+    net_profit: float
+    return_percent: float
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "total_trades": 156,
+                "wins": 85,
+                "losses": 71,
+                "win_rate": 54.5,
+                "total_r": 12.3,
+                "avg_r": 0.08,
+                "max_r": 3.5,
+                "min_r": -1.0,
+                "max_drawdown": -320.0,
+                "max_drawdown_pct": -3.2,
+                "sharpe_ratio": 1.8,
+                "initial_balance": 10000.0,
+                "final_balance": 11230.0,
+                "net_profit": 1230.0,
+                "return_percent": 12.3
+            }
+        }
+
+
+class CandleData(BaseModel):
+    """Single candlestick data point"""
+    
+    timestamp: str
+    open: float
+    high: float
+    low: float
+    close: float
+    ema_fast: Optional[float] = None
+    ema_mid: Optional[float] = None
+    ema_slow: Optional[float] = None
+    rsi: Optional[float] = None
+    adx: Optional[float] = None
+
+
+class ChartData(BaseModel):
+    """Chart data for a single pair"""
+    
+    symbol: str
+    m15_candles: List[CandleData]
+    m1_candles: List[CandleData]
+
+
+class MultiPairBacktestResults(BaseModel):
+    """Complete results for multi-pair backtest"""
+    
+    task_id: str
+    pairs: List[str]
+    strategies: List[str]
+    start_date: str
+    end_date: str
+    timeframe: str
+    
+    # All trades chronologically sorted
+    trades: List[TradeRecord]
+    
+    # Overall statistics
+    statistics: OverallStatistics
+    
+    # Equity curve (chronological)
+    equity_curve: List[EquityPoint]
+    
+    # Breakdowns
+    pair_breakdown: Dict[str, PairStatistics]
+    strategy_breakdown: Dict[str, StrategyStatistics]
+    
+    # Chart data for each pair
+    pair_chart_data: Dict[str, ChartData]
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "task_id": "abc123",
+                "pairs": ["EURUSD", "GBPUSD", "USDJPY"],
+                "strategies": ["trend_rider", "range_rider"],
+                "start_date": "2024-01-01",
+                "end_date": "2024-12-31",
+                "timeframe": "M15",
+                "trades": [],
+                "statistics": {},
+                "equity_curve": [],
+                "pair_breakdown": {},
+                "strategy_breakdown": {},
+                "pair_chart_data": {}
+            }
+        }

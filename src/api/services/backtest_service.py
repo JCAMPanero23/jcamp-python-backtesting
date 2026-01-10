@@ -797,3 +797,278 @@ class BacktestService:
             del self.tasks[task_id]
             return True
         return False
+
+    async def execute_multi_pair_backtest(self, task_id: str):
+        """Execute multi-pair backtest in background."""
+        try:
+            task = self.tasks.get(task_id)
+            if not task:
+                return
+            task['status'] = 'running'
+            task['started_at'] = datetime.utcnow().isoformat() + 'Z'
+            task['message'] = 'Initializing multi-pair backtest...'
+            request = task['request']
+            pairs = request['pairs']
+            config = request['config']
+            all_pair_results = {}
+            pair_engines = {}
+            total_pairs = len(pairs)
+            for idx, symbol in enumerate(pairs):
+                task['progress'] = 10.0 + (idx / total_pairs) * 70.0
+                task['message'] = f'Running backtest for {symbol} ({idx+1}/{total_pairs})...'
+                engine = BacktestEngine(
+                    initial_balance=config['initial_balance'],
+                    risk_percent=config['risk_percent'] * 100,
+                    max_positions=config['max_concurrent_positions'],
+                    timeframe=request.get('timeframe', 'M15')
+                )
+                year = request['start_date'][:4]
+                try:
+                    results = engine.run_backtest(symbol=symbol, year=year, start_date=request['start_date'], end_date=request['end_date'])
+                    all_pair_results[symbol] = results
+                    pair_engines[symbol] = engine
+                    print(f'[OK] {symbol} backtest complete: {results["performance"]["total_trades"]} trades')
+                except Exception as e:
+                    print(f'[ERROR] {symbol} backtest failed: {e}')
+                    all_pair_results[symbol] = {'error': str(e), 'performance': self._get_empty_performance(), 'trades': [], 'equity_curve': []}
+            task['progress'] = 85.0
+            task['message'] = 'Merging results across pairs...'
+            api_results = self._merge_multi_pair_results(task_id=task_id, request=request, pair_results=all_pair_results, pair_engines=pair_engines)
+            task['status'] = 'complete'
+            task['progress'] = 100.0
+            task['message'] = 'Multi-pair backtest completed successfully'
+            task['completed_at'] = datetime.utcnow().isoformat() + 'Z'
+            task['results'] = api_results
+        except Exception as e:
+            task['status'] = 'failed'
+            task['message'] = f'Multi-pair backtest failed: {str(e)}'
+            task['error'] = {'error': str(e), 'traceback': traceback.format_exc()}
+            print(f'Multi-pair backtest {task_id} failed: {e}')
+            traceback.print_exc()
+
+    def _merge_multi_pair_results(self, task_id: str, request: dict, pair_results: dict, pair_engines: dict) -> dict:
+        """Merge results from multiple pairs into unified response."""
+        all_trades = []
+        for symbol, results in pair_results.items():
+            if "error" in results:
+                continue
+            trades_list = results.get("trades", [])
+            for trade in trades_list:
+                api_trade = {
+                    "position_id": trade["position_id"],
+                    "symbol": trade["symbol"],
+                    "side": self._convert_side_to_csharp(trade["side"]),
+                    "strategy": self._convert_strategy_to_csharp(trade["strategy"]),
+                    "confidence": trade.get("confidence", 0.0),
+                    "regime": trade.get("regime", "UNKNOWN"),
+                    "entry_time": self._format_timestamp(trade["entry_time"]),
+                    "exit_time": self._format_timestamp(trade.get("exit_time")),
+                    "entry_price": trade["entry_price"],
+                    "exit_price": trade.get("exit_price"),
+                    "stop_loss": trade.get("initial_stop"),
+                    "take_profit": trade.get("initial_tp"),
+                    "r_multiple": trade.get("r_multiple"),
+                    "profit_loss": trade.get("profit_loss"),
+                    "exit_reason": trade.get("exit_reason")
+                }
+                all_trades.append(api_trade)
+        all_trades.sort(key=lambda t: t["exit_time"] if t["exit_time"] else t["entry_time"])
+        overall_stats = self._calculate_overall_statistics(all_trades, request["config"]["initial_balance"])
+        pair_breakdown = {}
+        for symbol in request["pairs"]:
+            pair_trades = [t for t in all_trades if t["symbol"] == symbol]
+            pair_breakdown[symbol] = self._calculate_pair_statistics(pair_trades)
+        strategy_breakdown = {}
+        for strategy in ["TREND_RIDER", "RANGE_RIDER"]:
+            strat_trades = [t for t in all_trades if t["strategy"] == strategy]
+            if strat_trades:
+                strategy_breakdown[strategy] = self._calculate_strategy_statistics(strat_trades)
+        equity_curve = self._build_unified_equity_curve(all_trades, request["config"]["initial_balance"])
+        pair_chart_data = {}
+        for symbol, engine in pair_engines.items():
+            if symbol in pair_results and "error" not in pair_results[symbol]:
+                pair_chart_data[symbol] = self._prepare_pair_chart_data(symbol=symbol, engine=engine, request=request)
+        return {
+            "task_id": task_id,
+            "pairs": request["pairs"],
+            "strategies": request["strategies"],
+            "start_date": request["start_date"],
+            "end_date": request["end_date"],
+            "timeframe": request.get("timeframe", "M15"),
+            "trades": all_trades,
+            "statistics": overall_stats,
+            "equity_curve": equity_curve,
+            "pair_breakdown": pair_breakdown,
+            "strategy_breakdown": strategy_breakdown,
+            "pair_chart_data": pair_chart_data
+        }
+
+    def _convert_side_to_csharp(self, side: str) -> str:
+        """Convert BUY/SELL to LONG/SHORT for C# compatibility"""
+        mapping = {"BUY": "LONG", "SELL": "SHORT", "LONG": "LONG", "SHORT": "SHORT"}
+        return mapping.get(side, side)
+
+    def _convert_strategy_to_csharp(self, strategy: str) -> str:
+        """Convert strategy name to C# format"""
+        mapping = {"SIMPLE_TEST": "SIMPLE_TEST", "TREND_RIDER": "TREND_RIDER", "RANGE_RIDER": "RANGE_RIDER", "trend_rider": "TREND_RIDER", "range_rider": "RANGE_RIDER"}
+        return mapping.get(strategy, strategy.upper())
+
+    def _format_timestamp(self, timestamp):
+        """Format timestamp to ISO format for C#"""
+        if timestamp is None:
+            return None
+        if isinstance(timestamp, datetime):
+            return timestamp.isoformat()
+        if isinstance(timestamp, str):
+            try:
+                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                return dt.isoformat()
+            except:
+                return timestamp
+        return str(timestamp)
+
+    def _calculate_overall_statistics(self, trades: list, initial_balance: float) -> dict:
+        """Calculate overall statistics from all trades"""
+        if not trades:
+            return self._get_empty_overall_stats(initial_balance)
+        total_trades = len(trades)
+        wins = len([t for t in trades if t.get("r_multiple", 0) and t["r_multiple"] > 0])
+        losses = len([t for t in trades if t.get("r_multiple", 0) and t["r_multiple"] < 0])
+        total_r = sum([t.get("r_multiple", 0) or 0 for t in trades])
+        avg_r = total_r / total_trades if total_trades > 0 else 0
+        r_multiples = [t.get("r_multiple", 0) or 0 for t in trades]
+        max_r = max(r_multiples) if r_multiples else 0
+        min_r = min(r_multiples) if r_multiples else 0
+        total_pl = sum([t.get("profit_loss", 0) or 0 for t in trades])
+        final_balance = initial_balance + total_pl
+        win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
+        return_percent = (total_pl / initial_balance * 100) if initial_balance > 0 else 0
+        running_balance = initial_balance
+        peak_balance = initial_balance
+        max_drawdown_dollars = 0
+        for trade in trades:
+            running_balance += trade.get("profit_loss", 0) or 0
+            if running_balance > peak_balance:
+                peak_balance = running_balance
+            drawdown = peak_balance - running_balance
+            if drawdown > max_drawdown_dollars:
+                max_drawdown_dollars = drawdown
+        max_drawdown_pct = -(max_drawdown_dollars / peak_balance * 100) if peak_balance > 0 else 0
+        if r_multiples and len(r_multiples) > 1:
+            import numpy as np
+            r_std = float(np.std(r_multiples))
+            sharpe_ratio = avg_r / r_std if r_std > 0 else 0
+        else:
+            sharpe_ratio = 0
+        return {
+            "total_trades": total_trades,
+            "wins": wins,
+            "losses": losses,
+            "win_rate": round(win_rate, 1),
+            "total_r": round(total_r, 2),
+            "avg_r": round(avg_r, 2),
+            "max_r": round(max_r, 2),
+            "min_r": round(min_r, 2),
+            "max_drawdown": round(-max_drawdown_dollars, 2),
+            "max_drawdown_pct": round(max_drawdown_pct, 1),
+            "sharpe_ratio": round(sharpe_ratio, 2),
+            "initial_balance": initial_balance,
+            "final_balance": round(final_balance, 2),
+            "net_profit": round(total_pl, 2),
+            "return_percent": round(return_percent, 1)
+        }
+
+    def _calculate_pair_statistics(self, trades: list) -> dict:
+        """Calculate statistics for a single pair"""
+        if not trades:
+            return {"trades": 0, "wins": 0, "losses": 0, "win_rate": 0.0, "total_r": 0.0, "avg_r": 0.0, "net_profit": 0.0}
+        total_trades = len(trades)
+        wins = len([t for t in trades if t.get("r_multiple", 0) and t["r_multiple"] > 0])
+        losses = len([t for t in trades if t.get("r_multiple", 0) and t["r_multiple"] < 0])
+        total_r = sum([t.get("r_multiple", 0) or 0 for t in trades])
+        avg_r = total_r / total_trades if total_trades > 0 else 0
+        total_pl = sum([t.get("profit_loss", 0) or 0 for t in trades])
+        win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
+        return {"trades": total_trades, "wins": wins, "losses": losses, "win_rate": round(win_rate, 1), "total_r": round(total_r, 2), "avg_r": round(avg_r, 2), "net_profit": round(total_pl, 2)}
+
+    def _calculate_strategy_statistics(self, trades: list) -> dict:
+        """Calculate statistics for a single strategy"""
+        return self._calculate_pair_statistics(trades)
+
+    def _build_unified_equity_curve(self, trades: list, initial_balance: float) -> list:
+        """Build chronological equity curve from all trades"""
+        if not trades:
+            return []
+        equity_curve = []
+        running_balance = initial_balance
+        cumulative_r = 0
+        if trades:
+            first_time = trades[0]["entry_time"]
+            equity_curve.append({"timestamp": first_time, "balance": initial_balance, "r_multiple": 0.0, "cumulative_r": 0.0, "strategy": "START"})
+        for trade in trades:
+            if trade.get("exit_time"):
+                running_balance += trade.get("profit_loss", 0) or 0
+                cumulative_r += trade.get("r_multiple", 0) or 0
+                equity_curve.append({"timestamp": trade["exit_time"], "balance": round(running_balance, 2), "r_multiple": round(trade.get("r_multiple", 0) or 0, 2), "cumulative_r": round(cumulative_r, 2), "strategy": trade["strategy"]})
+        return equity_curve
+
+    def _prepare_pair_chart_data(self, symbol: str, engine, request: dict) -> dict:
+        """Prepare chart data (OHLC + indicators) for a single pair"""
+        try:
+            import pandas as pd
+            backtest_start_idx = getattr(engine, 'backtest_start_idx', 0)
+            df_m15 = engine.df.iloc[backtest_start_idx:].copy()
+            df_m15 = df_m15[df_m15.index.dayofweek < 5]
+            m15_candles = []
+            for idx, row in df_m15.iterrows():
+                candle = {
+                    "timestamp": idx.isoformat() if isinstance(idx, pd.Timestamp) else str(idx),
+                    "open": float(row['open']),
+                    "high": float(row['high']),
+                    "low": float(row['low']),
+                    "close": float(row['close']),
+                    "ema_fast": float(row.get('ema_fast', 0)) if not pd.isna(row.get('ema_fast', 0)) else None,
+                    "ema_mid": float(row.get('ema_mid', 0)) if not pd.isna(row.get('ema_mid', 0)) else None,
+                    "ema_slow": float(row.get('ema_slow', 0)) if not pd.isna(row.get('ema_slow', 0)) else None,
+                    "rsi": float(row.get('rsi', 50)) if not pd.isna(row.get('rsi', 50)) else 50.0,
+                    "adx": float(row.get('adx', 0)) if not pd.isna(row.get('adx', 0)) else None
+                }
+                m15_candles.append(candle)
+            m1_candles = self._prepare_m1_candles_simplified(symbol, request, engine)
+            return {"symbol": symbol, "m15_candles": m15_candles, "m1_candles": m1_candles}
+        except Exception as e:
+            print(f"[WARN] Chart data preparation failed for {symbol}: {e}")
+            return {"symbol": symbol, "m15_candles": [], "m1_candles": []}
+
+    def _prepare_m1_candles_simplified(self, symbol: str, request: dict, engine) -> list:
+        """Simplified M1 candle preparation"""
+        try:
+            from src.data_loader import DataLoader
+            import pandas as pd
+            loader = DataLoader(data_dir="data")
+            year = int(request["start_date"][:4])
+            m1_df = loader.load_pair_data(symbol, year=year)
+            backtest_start_idx = getattr(engine, 'backtest_start_idx', 0)
+            m15_df = engine.df.iloc[backtest_start_idx:].copy()
+            m15_df = m15_df[m15_df.index.dayofweek < 5]
+            m15_start = m15_df.index[0]
+            m15_end = m15_df.index[-1]
+            m1_end = m15_end + pd.Timedelta(minutes=14)
+            m1_filtered = m1_df.loc[m15_start:m1_end]
+            m1_filtered = m1_filtered[m1_filtered.index.dayofweek < 5]
+            m1_candles = []
+            for idx, row in m1_filtered.iterrows():
+                candle = {"timestamp": idx.isoformat() if isinstance(idx, pd.Timestamp) else str(idx), "open": float(row['open']), "high": float(row['high']), "low": float(row['low']), "close": float(row['close'])}
+                m1_candles.append(candle)
+            return m1_candles
+        except Exception as e:
+            print(f"[WARN] M1 data preparation failed for {symbol}: {e}")
+            return []
+
+    def _get_empty_performance(self) -> dict:
+        """Return empty performance dict for failed pairs"""
+        return {"initial_balance": 0, "final_balance": 0, "total_trades": 0, "winning_trades": 0, "losing_trades": 0, "win_rate": 0, "total_r": 0}
+
+    def _get_empty_overall_stats(self, initial_balance: float) -> dict:
+        """Return empty overall statistics"""
+        return {"total_trades": 0, "wins": 0, "losses": 0, "win_rate": 0.0, "total_r": 0.0, "avg_r": 0.0, "max_r": 0.0, "min_r": 0.0, "max_drawdown": 0.0, "max_drawdown_pct": 0.0, "sharpe_ratio": 0.0, "initial_balance": initial_balance, "final_balance": initial_balance, "net_profit": 0.0, "return_percent": 0.0}

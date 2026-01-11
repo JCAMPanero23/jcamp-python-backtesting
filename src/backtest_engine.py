@@ -199,7 +199,8 @@ class BacktestEngine:
         symbol: str,
         year: str,
         start_date: Optional[str] = None,
-        end_date: Optional[str] = None
+        end_date: Optional[str] = None,
+        strategies: Optional[List[str]] = None
     ) -> Dict:
         """
         Run backtest on historical data.
@@ -209,6 +210,8 @@ class BacktestEngine:
             year: Year to test
             start_date: Optional start date (YYYY-MM-DD)
             end_date: Optional end date (YYYY-MM-DD)
+            strategies: List of strategies to evaluate (simple_test, trend_rider, range_rider)
+                       If None, defaults to all three strategies
 
         Returns:
             Dictionary with backtest results
@@ -216,6 +219,15 @@ class BacktestEngine:
         print("\n" + "="*70)
         print(f"  JCAMP BACKTEST ENGINE - {symbol} {year}")
         print("="*70)
+
+        # Normalize strategies parameter (default to trend_rider and range_rider)
+        if strategies is None:
+            self.active_strategies = ['trend_rider', 'range_rider']
+        else:
+            # Normalize strategy names to lowercase
+            self.active_strategies = [s.lower().replace('-', '_') for s in strategies]
+
+        print(f"\n[INFO] Active strategies: {', '.join(self.active_strategies)}")
 
         # Prepare data (with automatic multi-year loading if warmup requires it)
         df_full = self.prepare_data(symbol, year, start_date=start_date)
@@ -325,41 +337,34 @@ class BacktestEngine:
             regime = regime.name
         else:
             regime = str(regime).split('.')[-1] if '.' in str(regime) else str(regime)
-        
-        # Check Simple Test Strategy (for chart testing)
-        st_signal, st_confidence, st_details = self.simple_test.generate_signal(
-            df, idx, csm_data, regime
-        )
 
-        if st_signal != 'NONE':
-            self._open_position(
-                symbol, st_signal, current_price, current_time,
-                df, idx, 'SIMPLE_TEST', st_confidence, regime
+        # Evaluate strategies in order of priority based on active_strategies
+        # Only one entry per bar (first signal wins)
+
+        # Check Trend Rider Strategy
+        if 'trend_rider' in self.active_strategies:
+            tr_signal, tr_confidence, tr_details = self.trend_rider.generate_signal(
+                df, idx, csm_data, regime
             )
-            return  # One entry per bar
 
-        # DISABLED FOR TESTING: Check Trend Rider
-        # tr_signal, tr_confidence, tr_details = self.trend_rider.generate_signal(
-        #     df, idx, csm_data, regime
-        # )
-        #
-        # if tr_signal != 'NONE':
-        #     self._open_position(
-        #         symbol, tr_signal, current_price, current_time,
-        #         df, idx, 'TREND_RIDER', tr_confidence, regime
-        #     )
-        #     return  # One entry per bar
+            if tr_signal != 'NONE':
+                self._open_position(
+                    symbol, tr_signal, current_price, current_time,
+                    df, idx, 'TREND_RIDER', tr_confidence, regime
+                )
+                return  # One entry per bar
 
-        # DISABLED FOR TESTING: Check Range Rider
-        # rr_signal, rr_confidence, rr_details = self.range_rider.generate_signal(
-        #     df, idx, csm_data, regime
-        # )
-        #
-        # if rr_signal != 'NONE':
-        #     self._open_position(
-        #         symbol, rr_signal, current_price, current_time,
-        #         df, idx, 'RANGE_RIDER', rr_confidence, regime
-        #     )
+        # Check Range Rider Strategy
+        if 'range_rider' in self.active_strategies:
+            rr_signal, rr_confidence, rr_details = self.range_rider.generate_signal(
+                df, idx, csm_data, regime
+            )
+
+            if rr_signal != 'NONE':
+                self._open_position(
+                    symbol, rr_signal, current_price, current_time,
+                    df, idx, 'RANGE_RIDER', rr_confidence, regime
+                )
     
     def _open_position(
         self,
@@ -375,12 +380,12 @@ class BacktestEngine:
     ):
         """Open a new position."""
         # Get strategy object
-        if strategy == 'SIMPLE_TEST':
-            strategy_obj = self.simple_test
-        elif strategy == 'TREND_RIDER':
+        if strategy == 'TREND_RIDER':
             strategy_obj = self.trend_rider
-        else:  # RANGE_RIDER
+        elif strategy == 'RANGE_RIDER':
             strategy_obj = self.range_rider
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
 
         # Calculate stop loss
         stop_loss_distance = strategy_obj.get_stop_loss(df, idx, signal)

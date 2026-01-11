@@ -89,11 +89,19 @@ class BacktestService:
             task["message"] = "Loading data..."
 
             # Run backtest
+            # Convert strategy field to strategies list
+            strategy_param = request.get("strategy", "both")
+            if strategy_param == "both":
+                strategies_list = ["trend_rider", "range_rider"]
+            else:
+                strategies_list = [strategy_param]
+
             results = engine.run_backtest(
                 symbol=request["symbol"],
                 year=year,
                 start_date=request["start_date"],
-                end_date=request["end_date"]
+                end_date=request["end_date"],
+                strategies=strategies_list
             )
 
             task["progress"] = 90.0
@@ -824,7 +832,13 @@ class BacktestService:
                 )
                 year = request['start_date'][:4]
                 try:
-                    results = engine.run_backtest(symbol=symbol, year=year, start_date=request['start_date'], end_date=request['end_date'])
+                    results = engine.run_backtest(
+                        symbol=symbol,
+                        year=year,
+                        start_date=request['start_date'],
+                        end_date=request['end_date'],
+                        strategies=request.get('strategies')
+                    )
                     all_pair_results[symbol] = results
                     pair_engines[symbol] = engine
                     print(f'[OK] {symbol} backtest complete: {results["performance"]["total_trades"]} trades')

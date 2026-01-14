@@ -9,6 +9,7 @@ import os
 from typing import Dict, Optional
 from datetime import datetime
 from src.backtest_engine import BacktestEngine
+from src.position_manager import PositionManager
 from src.visualization.chart_generator import (
     generate_candlestick_chart,
     generate_equity_curve,
@@ -821,6 +822,30 @@ class BacktestService:
             all_pair_results = {}
             pair_engines = {}
             total_pairs = len(pairs)
+
+
+            # ARCHITECTURAL LIMITATION (Phase 8.6):
+            # Pairs are processed SEQUENTIALLY, not chronologically bar-by-bar.
+            # This means:
+            #   1. EURUSD backtest runs completely (all bars, all trades)
+            #   2. Then GBPUSD backtest runs completely
+            #   3. Trades are merged chronologically after the fact
+            #
+            # IMPACT:
+            #   - Position slots may not be managed realistically
+            #   - First pair processed gets priority for position slots
+            #   - Does not simulate true live trading conditions
+            #
+            # TODO (Phase 8.7): Implement true chronological bar-by-bar orchestrator
+            #   - Advance all pairs simultaneously by timestamp
+            #   - Evaluate strategies chronologically across pairs
+            #   - Implement signal priority resolution when multiple pairs signal
+            #   - Estimate: 16-24 hours development + testing
+
+            # Create shared PositionManager for all pairs (respects global limit)
+            shared_position_manager = PositionManager(config["max_concurrent_positions"])
+            print(f"[MULTI-PAIR] Created shared PositionManager with max_positions={config['max_concurrent_positions']}")
+
             for idx, symbol in enumerate(pairs):
                 task['progress'] = 10.0 + (idx / total_pairs) * 70.0
                 task['message'] = f'Running backtest for {symbol} ({idx+1}/{total_pairs})...'
@@ -828,7 +853,8 @@ class BacktestService:
                     initial_balance=config['initial_balance'],
                     risk_percent=config['risk_percent'] * 100,
                     max_positions=config['max_concurrent_positions'],
-                    timeframe=request.get('timeframe', 'M15')
+                    timeframe=request.get('timeframe', 'M15'),
+                    position_manager=shared_position_manager
                 )
                 year = request['start_date'][:4]
                 try:
@@ -1059,24 +1085,41 @@ class BacktestService:
         try:
             from src.data_loader import DataLoader
             import pandas as pd
-            loader = DataLoader(data_dir="data")
+            import traceback
+            
+            print(f"[M1-LOAD] Starting M1 data preparation for {symbol}")
+            
+            # Reuse engine's DataLoader instead of creating new one (prevents state corruption)
+            loader = engine.loader
             year = int(request["start_date"][:4])
+            
+            print(f"[M1-LOAD] Loading M1 data for {symbol}, year={year}")
             m1_df = loader.load_pair_data(symbol, year=year)
+            print(f"[M1-LOAD] Loaded {len(m1_df)} M1 candles for {symbol}")
+            
             backtest_start_idx = getattr(engine, 'backtest_start_idx', 0)
             m15_df = engine.df.iloc[backtest_start_idx:].copy()
             m15_df = m15_df[m15_df.index.dayofweek < 5]
             m15_start = m15_df.index[0]
             m15_end = m15_df.index[-1]
             m1_end = m15_end + pd.Timedelta(minutes=14)
+            
+            print(f"[M1-LOAD] Filtering M1 data: {m15_start} to {m1_end}")
             m1_filtered = m1_df.loc[m15_start:m1_end]
             m1_filtered = m1_filtered[m1_filtered.index.dayofweek < 5]
+            print(f"[M1-LOAD] Filtered to {len(m1_filtered)} M1 candles for {symbol}")
+            
             m1_candles = []
             for idx, row in m1_filtered.iterrows():
                 candle = {"timestamp": idx.isoformat() if isinstance(idx, pd.Timestamp) else str(idx), "open": float(row['open']), "high": float(row['high']), "low": float(row['low']), "close": float(row['close'])}
                 m1_candles.append(candle)
+            
+            print(f"[M1-LOAD] Successfully prepared {len(m1_candles)} M1 candles for {symbol}")
             return m1_candles
         except Exception as e:
-            print(f"[WARN] M1 data preparation failed for {symbol}: {e}")
+            import traceback
+            print(f"[ERROR] M1 data preparation failed for {symbol}: {e}")
+            print(f"[ERROR] Traceback: {traceback.format_exc()}")
             return []
 
     def _get_empty_performance(self) -> dict:

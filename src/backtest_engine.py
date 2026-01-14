@@ -37,7 +37,8 @@ class BacktestEngine:
         initial_balance: float = 10000.0,
         risk_percent: float = 2.0,
         max_positions: int = 2,
-        timeframe: str = 'M15'
+        timeframe: str = 'M15',
+        position_manager: Optional['PositionManager'] = None
     ):
         """
         Initialize backtest engine.
@@ -47,6 +48,7 @@ class BacktestEngine:
             risk_percent: Risk per trade as percentage
             max_positions: Max concurrent positions
             timeframe: Chart timeframe (M15, H1, H4, etc.)
+            position_manager: Optional shared PositionManager (for multi-pair backtests)
         """
         self.initial_balance = initial_balance
         self.risk_percent = risk_percent
@@ -54,7 +56,8 @@ class BacktestEngine:
         self.timeframe = timeframe
         
         # Initialize components
-        self.position_manager = PositionManager(max_positions)
+        # Use provided position_manager (multi-pair) or create new one (single-pair)
+        self.position_manager = position_manager if position_manager is not None else PositionManager(max_positions)
         self.performance_tracker = PerformanceTracker(initial_balance)
         
         # Data components

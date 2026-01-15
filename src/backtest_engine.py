@@ -22,7 +22,6 @@ from src.indicators import TechnicalIndicators
 from src.regime_detector import RegimeDetector
 from src.strategies.trend_rider import TrendRiderStrategy
 from src.strategies.range_rider import RangeRiderStrategy
-from src.strategies.simple_test import SimpleTestStrategy
 from src.position_manager import PositionManager, Position, ExitReason, PositionSide
 from src.performance_tracker import PerformanceTracker
 
@@ -68,7 +67,6 @@ class BacktestEngine:
         
         # Strategy components
         config = self._get_config()
-        self.simple_test = SimpleTestStrategy(config)
         self.trend_rider = TrendRiderStrategy(config)
         self.range_rider = RangeRiderStrategy(config)
         

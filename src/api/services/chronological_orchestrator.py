@@ -9,6 +9,7 @@ simulating realistic live trading conditions with shared position management.
 import pandas as pd
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime
+import numpy as np
 from src.backtest_engine import BacktestEngine
 from src.position_manager import PositionManager
 
@@ -88,6 +89,8 @@ class ChronologicalOrchestrator:
                 position_manager=self.position_manager  # SHARED!
             )
 
+            # Set active strategies (required by _check_entries)
+            engine.active_strategies = [s.lower().replace("-", "_") for s in self.strategies]
             # Prepare data (loads and prepares indicators)
             df = engine.prepare_data(
                 symbol=pair,
@@ -100,12 +103,24 @@ class ChronologicalOrchestrator:
                 end_timestamp = pd.Timestamp(self.end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
                 df = df[df.index <= end_timestamp]
 
+            # Calculate backtest start index (after warmup period)
+            # This mimics the logic in BacktestEngine.run_backtest()
+            WARMUP_BARS = 500
+            if self.start_date:
+                start_timestamp = pd.Timestamp(self.start_date)
+                start_idx = df.index.get_indexer([start_timestamp], method='bfill')[0]
+                warmup_start_idx = max(0, start_idx - WARMUP_BARS)
+                backtest_start_idx = start_idx - warmup_start_idx
+            else:
+                backtest_start_idx = WARMUP_BARS
+
             # Store engine, data, and initialize bar index
             self.pair_engines[pair] = engine
             self.pair_data[pair] = df
-            self.pair_indices[pair] = engine.backtest_start_idx  # Start after warmup
+            self.pair_indices[pair] = backtest_start_idx  # Start after warmup
 
-            print(f"[CHRONO] ✓ {pair}: {len(df)} bars loaded, starting at index {engine.backtest_start_idx}")
+            print(f"[CHRONO] OK {pair}: {len(df)} bars loaded, starting at index {backtest_start_idx}")
+            print(f"[CHRONO]   Backtest period: {df.index[backtest_start_idx]} to {df.index[-1]}")
 
         print(f"[CHRONO] All pairs loaded successfully")
 
@@ -133,7 +148,7 @@ class ChronologicalOrchestrator:
 
         self.global_timeline = timeline
 
-        print(f"[CHRONO] ✓ Global timeline created: {len(timeline)} bars")
+        print(f"[CHRONO] OK Global timeline created: {len(timeline)} bars")
         print(f"[CHRONO] Timeline range: {timeline[0][0]} to {timeline[-1][0]}")
 
         return timeline
@@ -191,7 +206,7 @@ class ChronologicalOrchestrator:
         not just the pair that opened the position.
         """
         # Get all open positions
-        open_positions = list(self.position_manager.open_positions.values())
+        open_positions = list(self.position_manager.open_positions)
 
         for position in open_positions:
             # Get the pair's current data
@@ -258,7 +273,7 @@ class ChronologicalOrchestrator:
         # Calculate overall statistics
         overall_stats = self._calculate_overall_stats(all_trades)
 
-        print(f"[CHRONO] ✓ Results compiled")
+        print(f"[CHRONO] OK Results compiled")
         print(f"[CHRONO] Total trades: {len(all_trades)}")
         print(f"[CHRONO] Win rate: {overall_stats['win_rate']:.1f}%")
         print(f"[CHRONO] Total R: {overall_stats['total_r']:.2f}")

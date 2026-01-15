@@ -348,120 +348,161 @@ class ValidationResponse(BaseModel):
         }
 
 
-class PairBreakdown(BaseModel):
-    """Performance breakdown by pair"""
 
-    pair: str
+class PairStatistics(BaseModel):
+    """Performance statistics for a single pair"""
+    
     trades: int
     wins: int
     losses: int
-    total_r: float
-    total_pl: float
     win_rate: float
+    total_r: float
     avg_r: float
-
+    net_profit: float
+    
     class Config:
         json_schema_extra = {
             "example": {
-                "pair": "EURUSD",
                 "trades": 52,
                 "wins": 30,
                 "losses": 22,
-                "total_r": 5.6,
-                "total_pl": 560.0,
                 "win_rate": 57.7,
-                "avg_r": 0.11
+                "total_r": 5.6,
+                "avg_r": 0.11,
+                "net_profit": 560.0
             }
         }
 
 
-class MultiPairBacktestResults(BaseModel):
-    """Complete multi-pair backtest results"""
-
-    task_id: str
-    pairs: List[str]
-    strategies: List[str]
-    start_date: str
-    end_date: str
-
-    # Overall performance
-    initial_balance: float
-    final_balance: float
+class StrategyStatistics(BaseModel):
+    """Performance statistics for a single strategy"""
+    
+    trades: int
+    wins: int
+    losses: int
+    win_rate: float
+    total_r: float
+    avg_r: float
     net_profit: float
-    return_pct: float
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "trades": 89,
+                "wins": 50,
+                "losses": 39,
+                "win_rate": 56.2,
+                "total_r": 8.2,
+                "avg_r": 0.09,
+                "net_profit": 820.0
+            }
+        }
+
+
+class OverallStatistics(BaseModel):
+    """Overall multi-pair backtest statistics"""
+    
     total_trades: int
-    winning_trades: int
-    losing_trades: int
+    wins: int
+    losses: int
     win_rate: float
     total_r: float
     avg_r: float
     max_r: float
     min_r: float
+    max_drawdown: float
     max_drawdown_pct: float
-    max_drawdown_dollars: float
-    profit_factor: float
     sharpe_ratio: float
-    max_consecutive_wins: int
-    max_consecutive_losses: int
-
-    # Breakdowns
-    strategy_breakdown: Dict[str, StrategyBreakdown]
-    pair_breakdown: Dict[str, PairBreakdown]
-
-    # Trade data
-    trades: List[TradeRecord]
-    equity_curve: List[EquityPoint]
-
+    initial_balance: float
+    final_balance: float
+    net_profit: float
+    return_percent: float
+    
     class Config:
         json_schema_extra = {
             "example": {
-                "task_id": "abc123-def456-ghi789",
+                "total_trades": 156,
+                "wins": 85,
+                "losses": 71,
+                "win_rate": 54.5,
+                "total_r": 12.3,
+                "avg_r": 0.08,
+                "max_r": 3.5,
+                "min_r": -1.0,
+                "max_drawdown": -320.0,
+                "max_drawdown_pct": -3.2,
+                "sharpe_ratio": 1.8,
+                "initial_balance": 10000.0,
+                "final_balance": 11230.0,
+                "net_profit": 1230.0,
+                "return_percent": 12.3
+            }
+        }
+
+
+class CandleData(BaseModel):
+    """Single candlestick data point"""
+    
+    timestamp: str
+    open: float
+    high: float
+    low: float
+    close: float
+    ema_fast: Optional[float] = None
+    ema_mid: Optional[float] = None
+    ema_slow: Optional[float] = None
+    rsi: Optional[float] = None
+    adx: Optional[float] = None
+
+
+class ChartData(BaseModel):
+    """Chart data for a single pair"""
+    
+    symbol: str
+    m15_candles: List[CandleData]
+    m1_candles: List[CandleData]
+
+
+class MultiPairBacktestResults(BaseModel):
+    """Complete results for multi-pair backtest"""
+    
+    task_id: str
+    pairs: List[str]
+    strategies: List[str]
+    start_date: str
+    end_date: str
+    timeframe: str
+    
+    # All trades chronologically sorted
+    trades: List[TradeRecord]
+    
+    # Overall statistics
+    statistics: OverallStatistics
+    
+    # Equity curve (chronological)
+    equity_curve: List[EquityPoint]
+    
+    # Breakdowns
+    pair_breakdown: Dict[str, PairStatistics]
+    strategy_breakdown: Dict[str, StrategyStatistics]
+    
+    # Chart data for each pair
+    pair_chart_data: Dict[str, ChartData]
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "task_id": "abc123",
                 "pairs": ["EURUSD", "GBPUSD", "USDJPY"],
                 "strategies": ["trend_rider", "range_rider"],
                 "start_date": "2024-01-01",
                 "end_date": "2024-12-31",
-                "initial_balance": 10000.0,
-                "final_balance": 11230.0,
-                "net_profit": 1230.0,
-                "return_pct": 12.3,
-                "total_trades": 156,
-                "winning_trades": 85,
-                "losing_trades": 71,
-                "win_rate": 54.5,
-                "total_r": 12.3,
-                "avg_r": 0.08,
-                "max_r": 3.0,
-                "min_r": -1.0,
-                "max_drawdown_pct": 3.2,
-                "max_drawdown_dollars": 320.0,
-                "profit_factor": 1.5,
-                "sharpe_ratio": 1.8,
-                "max_consecutive_wins": 7,
-                "max_consecutive_losses": 5,
-                "strategy_breakdown": {
-                    "trend_rider": {
-                        "trades": 89,
-                        "wins": 50,
-                        "losses": 39,
-                        "total_r": 8.2,
-                        "total_pl": 820.0,
-                        "win_rate": 56.2,
-                        "avg_r": 0.09
-                    }
-                },
-                "pair_breakdown": {
-                    "EURUSD": {
-                        "pair": "EURUSD",
-                        "trades": 52,
-                        "wins": 30,
-                        "losses": 22,
-                        "total_r": 5.6,
-                        "total_pl": 560.0,
-                        "win_rate": 57.7,
-                        "avg_r": 0.11
-                    }
-                },
+                "timeframe": "M15",
                 "trades": [],
-                "equity_curve": []
+                "statistics": {},
+                "equity_curve": [],
+                "pair_breakdown": {},
+                "strategy_breakdown": {},
+                "pair_chart_data": {}
             }
         }

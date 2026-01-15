@@ -959,53 +959,71 @@ class BacktestService:
             total_pairs = len(pairs)
 
 
-            # ARCHITECTURAL LIMITATION (Phase 8.6):
-            # Pairs are processed SEQUENTIALLY, not chronologically bar-by-bar.
-            # This means:
-            #   1. EURUSD backtest runs completely (all bars, all trades)
-            #   2. Then GBPUSD backtest runs completely
-            #   3. Trades are merged chronologically after the fact
+            # PHASE 8.6 - BUG #2 FIX: Use ChronologicalOrchestrator
+            # Process all pairs chronologically bar-by-bar (true multi-pair simulation)
             #
-            # IMPACT:
-            #   - Position slots may not be managed realistically
-            #   - First pair processed gets priority for position slots
-            #   - Does not simulate true live trading conditions
+            # IMPLEMENTATION:
+            #   1. Create ChronologicalOrchestrator with shared PositionManager
+            #   2. Load data for all pairs simultaneously
+            #   3. Create global timeline sorted by timestamp
+            #   4. Process bars chronologically across all pairs
+            #   5. Exit checks run for all pairs at each timestamp
+            #   6. Entry signals evaluated in chronological order
             #
-            # TODO (Phase 8.7): Implement true chronological bar-by-bar orchestrator
-            #   - Advance all pairs simultaneously by timestamp
-            #   - Evaluate strategies chronologically across pairs
-            #   - Implement signal priority resolution when multiple pairs signal
-            #   - Estimate: 16-24 hours development + testing
+            # BENEFITS:
+            #   - Position slots managed realistically across all pairs
+            #   - Simulates true live trading conditions
+            #   - No priority given to any pair (first-come-first-served by timestamp)
 
-            # Create shared PositionManager for all pairs (respects global limit)
-            shared_position_manager = PositionManager(config["max_concurrent_positions"])
-            print(f"[MULTI-PAIR] Created shared PositionManager with max_positions={config['max_concurrent_positions']}")
+            print(f"\n[MULTI-PAIR] Initializing ChronologicalOrchestrator...")
 
-            for idx, symbol in enumerate(pairs):
-                task['progress'] = 10.0 + (idx / total_pairs) * 70.0
-                task['message'] = f'Running backtest for {symbol} ({idx+1}/{total_pairs})...'
-                engine = BacktestEngine(
-                    initial_balance=config['initial_balance'],
-                    risk_percent=config['risk_percent'] * 100,
-                    max_positions=config['max_concurrent_positions'],
-                    timeframe=request.get('timeframe', 'M15'),
-                    position_manager=shared_position_manager
-                )
-                year = request['start_date'][:4]
-                try:
-                    results = engine.run_backtest(
-                        symbol=symbol,
-                        year=year,
-                        start_date=request['start_date'],
-                        end_date=request['end_date'],
-                        strategies=request.get('strategies')
-                    )
-                    all_pair_results[symbol] = results
-                    pair_engines[symbol] = engine
-                    print(f'[OK] {symbol} backtest complete: {results["performance"]["total_trades"]} trades')
-                except Exception as e:
-                    print(f'[ERROR] {symbol} backtest failed: {e}')
-                    all_pair_results[symbol] = {'error': str(e), 'performance': self._get_empty_performance(), 'trades': [], 'equity_curve': []}
+            # Progress callback to update task status
+            def progress_callback(current, total):
+                progress_pct = 10.0 + (current / total) * 70.0
+                task['progress'] = progress_pct
+                task['message'] = f'Processing chronologically: {current}/{total} bars ({progress_pct:.1f}%)'
+
+            # Create orchestrator
+            orchestrator = ChronologicalOrchestrator(
+                pairs=pairs,
+                strategies=request.get('strategies', []),
+                config=config,
+                start_date=request['start_date'],
+                end_date=request['end_date'],
+                timeframe=request.get('timeframe', 'M15')
+            )
+
+            # Prepare engines and data
+            task['progress'] = 10.0
+            task['message'] = f'Loading data for {len(pairs)} pairs...'
+            orchestrator.prepare_pair_engines()
+
+            # Create global timeline
+            task['progress'] = 15.0
+            task['message'] = 'Creating global timeline...'
+            orchestrator.create_global_timeline()
+
+            # Execute chronological backtest
+            task['progress'] = 20.0
+            task['message'] = 'Processing chronologically...'
+            orchestrator_results = orchestrator.process_chronologically(progress_callback=progress_callback)
+
+            # Extract results
+            pair_engines = orchestrator_results["pair_engines"]
+
+            # Format results for compatibility with _merge_multi_pair_results
+            # Convert orchestrator output to expected format
+            all_pair_results = {}
+            for pair in pairs:
+                pair_trades = [t for t in orchestrator_results["trades"] if t["symbol"] == pair]
+                all_pair_results[pair] = {
+                    "trades": pair_trades,
+                    "performance": orchestrator_results["pair_results"].get(pair, {}),
+                    "equity_curve": []  # Will be generated later
+                }
+
+            print(f"\n[MULTI-PAIR] Chronological processing complete!")
+            print(f"[MULTI-PAIR] Total trades: {len(orchestrator_results['trades'])}")
             task['progress'] = 85.0
             task['message'] = 'Merging results across pairs...'
             api_results = self._merge_multi_pair_results(task_id=task_id, request=request, pair_results=all_pair_results, pair_engines=pair_engines)

@@ -327,8 +327,8 @@ class BacktestEngine:
             'quote_strength': df.iloc[idx]['csm_quote']
         }
         
-        # Detect regime
-        regime_data = self.regime_detector.detect_regime(df, idx)
+        # Detect regime (use only data up to current bar to prevent look-ahead bias)
+        regime_data = self.regime_detector.detect_regime(df.iloc[:idx+1], current_time)
         regime = regime_data['regime']
         
         # Convert regime to string if it's an enum

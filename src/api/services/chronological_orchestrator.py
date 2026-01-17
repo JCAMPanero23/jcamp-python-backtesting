@@ -119,6 +119,11 @@ class ChronologicalOrchestrator:
             self.pair_data[pair] = df
             self.pair_indices[pair] = backtest_start_idx  # Start after warmup
 
+            # CRITICAL: Set engine.df and backtest_start_idx for chart data preparation
+            # Chart preparation code expects these attributes to exist on the engine
+            engine.df = df
+            engine.backtest_start_idx = backtest_start_idx
+
             print(f"[CHRONO] OK {pair}: {len(df)} bars loaded, starting at index {backtest_start_idx}")
             print(f"[CHRONO]   Backtest period: {df.index[backtest_start_idx]} to {df.index[-1]}")
 
